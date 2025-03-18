@@ -1,4 +1,4 @@
-#include "chai3d.h"
+ï»¿#include "chai3d.h"
 #include <GLFW/glfw3.h>
 #include <vector>
 
@@ -20,12 +20,21 @@ enum MouseStates
 cWorld* world;
 cCamera* camera;
 cDirectionalLight* light;
+cMultiMesh* needle;
+cMultiMesh* mainObject;
 GLFWwindow* window;
+cBackground* background;
+cViewPanel* viewPanel;
+cFontPtr font;
 // mouse state
 MouseStates mouseState = MOUSE_IDLE;
 
 // last mouse position
 double mouseX, mouseY;
+
+// Variables para el zoom
+double cameraDistance = 500.0; // Distancia inicial de la cï¿½mara
+const double zoomSpeed = 30.0; // Velocidad del zoom
 
 //------------------------------------------------------------------------------
 // DECLARED FUNCTIONS
@@ -42,7 +51,7 @@ void onMouseScrollCallback(GLFWwindow* a_window, double a_offsetX, double a_offs
 // Callback to render scene
 void updateGraphics();
 
-// Función para cargar un modelo y crear un contenedor de mallas múltiples
+// FunciÃ³n para cargar un modelo y crear un contenedor de mallas mÃºltiples
 cMultiMesh* loadModel(const std::string& filepath)
 {
     cMultiMesh* model = new cMultiMesh();
@@ -85,13 +94,21 @@ int main(int argc, char* argv[])
 
     // Create a new world
     world = new cWorld();
+    // LIGHTNING
+    world->m_backgroundColor.set(0.9f, 0.9f, 0.9f);
 
     // Create a camera and position it FARTHER
     camera = new cCamera(world);
     world->addChild(camera);
-    camera->set(cVector3d(0.0, 0.0, 500.0),   // Camera position (mucho más lejos)
-        cVector3d(0.0, 0.0, 0.0),       // Look at center
-        cVector3d(0.0, 1.0, 0.0));      // Up vector
+    // Configurar la cï¿½mara en coordenadas esfï¿½ricas
+    camera->setSphericalReferences(cVector3d(0.0, 0.0, 0.0), // Origen (centro de la escena)
+        cVector3d(0.0, 0.0, 1.0), // Direcciï¿½n del cenit (eje Z)
+        cVector3d(1.0, 0.0, 0.0)); // Direcciï¿½n del acimut (eje X)
+
+    // Configurar posiciï¿½n inicial de la cï¿½mara
+    camera->setSphericalDeg(cameraDistance, // Radio (distancia)
+        0.0,          // ï¿½ngulo polar (inclinaciï¿½n)
+        0.0);         // ï¿½ngulo acimutal (rotaciï¿½n horizontal)
     camera->setClippingPlanes(0.01, 1000.0);
 
 
@@ -116,7 +133,7 @@ int main(int argc, char* argv[])
         "./stls/stick3.stl",
         "./stls/cube.stl",
         "./stls/stick4.stl",
-        "./stls/cover.stl",
+        // "./stls/cover.stl", // descomentar si se quiere usar la tapa
     };
 
     for (const string& path : modelPaths)
@@ -128,11 +145,37 @@ int main(int argc, char* argv[])
         }
     }
 
-    // Compute bounding box for the main object
+    // LOAD NEEDLE
+    needle = new cMultiMesh();
+
+    // load a needle-like mesh and attach it to the tool
+    bool fileload = needle->loadFromFile("./stls/needle.stl");
+    if (!fileload) {
+        std::cout << "Error: Could not load needle.stl" << std::endl;
+        return -1;
+    }
+
+    // resize tool mesh model
+    needle->scale(2.0);
+
+    // Rotar la aguja para que quede en posiciï¿½n horizontal
+    cMatrix3d rotation;
+    rotation.identity();
+    rotation.rotateAboutGlobalAxisDeg(cVector3d(0.0, 0.0, 1.0), 90); // Rotar 90 grados alrededor del eje Z
+    needle->setLocalRot(rotation);
+
+
+    needle->setLocalPos(cVector3d(0.0, 0.0, 0.0));
+
+    needle->setShowBoundaryBox(true);
+    world->addChild(needle); // Aï¿½adir la aguja al mundo, no al objeto principal
+
+    // Compute boundary box for the main object
     mainObject->computeBoundaryBox(true);
     cVector3d min = mainObject->getBoundaryMin();
     cVector3d max = mainObject->getBoundaryMax();
     cVector3d center = (min + max) * 0.5;
+    cVector3d boxSize = max - min; // Revisar (no se usa)
 
     // Translate the object to the center
     mainObject->translate(-center);
@@ -163,13 +206,14 @@ void updateGraphics()
 
 void onMouseScrollCallback(GLFWwindow* a_window, double a_offsetX, double a_offsetY)
 {
-    double r = camera->getSphericalRadius();
-    double zoomSpeed = 0.1;
-    r -= zoomSpeed * a_offsetY;  // Restar para acercar con scroll arriba, alejar con scroll abajo
-    // Limitar el rango del radio para evitar valores extremos
-    r = cClamp(r, 0.2, 10.0);
-    // Establecer el nuevo radio en la cámara
-    camera->setSphericalRadius(r);
+    // Ajustar la distancia de la cï¿½mara segï¿½n el movimiento de la rueda
+    cameraDistance -= a_offsetY * zoomSpeed;
+
+    // Limitar el rango de zoom
+    cameraDistance = cClamp(cameraDistance, 100.0, 1000.0);
+
+    // Aplicar la nueva distancia a la cï¿½mara
+    camera->setSphericalRadius(cameraDistance);
 }
 
 void onMouseButtonCallback(GLFWwindow* a_window, int a_button, int a_action, int a_mods)
