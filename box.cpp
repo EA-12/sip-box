@@ -247,14 +247,16 @@ int main(int argc, char* argv[])
 
     // resize tool mesh model
     needle->scale(2.0);
-    // demo
+   
 
     // Rotar la aguja para que quede en posici�n horizontal
     cMatrix3d rotation;
     rotation.identity();
     rotation.rotateAboutGlobalAxisDeg(cVector3d(0.0, 0.0, 1.0), 90); // Rotar 90 grados alrededor del eje Z
     needle->setLocalRot(rotation);
-    needle->setLocalPos(cVector3d(0.0, 0.0, 0.0));
+   // needle->setLocalPos(cVector3d(0.0, 0.0, 0.0)); NOT NEEDED
+    // Posición inicial de la aguja (agujero central)
+    needle->setLocalPos(holePositions[4]); // El índice 4 corresponde al agujero 5
     needle->setShowBoundaryBox(true);
     world->addChild(needle); // A�adir la aguja al mundo, no al objeto principal
 
