@@ -26,6 +26,11 @@ GLFWwindow* window;
 cBackground* background;
 cViewPanel* viewPanel;
 cFontPtr font;
+cMaterial* material;
+cCamera* needleCamera;
+
+
+
 // mouse state
 MouseStates mouseState = MOUSE_IDLE;
 
@@ -48,6 +53,9 @@ void onMouseMotionCallback(GLFWwindow* a_window, double a_posX, double a_posY);
 // callback to handle mouse scroll
 void onMouseScrollCallback(GLFWwindow* a_window, double a_offsetX, double a_offsetY);
 
+// callback para teclado
+void onKeyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, int a_mods);
+
 // Callback to render scene
 void updateGraphics();
 
@@ -63,7 +71,12 @@ cMultiMesh* loadModel(const std::string& filepath)
     return model;
 }
 
-// Main function
+
+
+//------------------------------------------------------------------------------
+// MAIN FUNCTION
+//------------------------------------------------------------------------------
+
 int main(int argc, char* argv[])
 {
     // Initialize GLFW
@@ -92,20 +105,24 @@ int main(int argc, char* argv[])
     // set GLFW mouse button callback
     glfwSetMouseButtonCallback(window, onMouseButtonCallback);
 
+    glfwSetKeyCallback(window, onKeyCallback);
+
+
     // Create a new world
     world = new cWorld();
+
     // LIGHTNING
     world->m_backgroundColor.set(0.9f, 0.9f, 0.9f);
 
     // Create a camera and position it FARTHER
     camera = new cCamera(world);
     world->addChild(camera);
-    // Configurar la c�mara en coordenadas esf�ricas
+    // Configurar la camara en coordenadas esfericas
     camera->setSphericalReferences(cVector3d(0.0, 0.0, 0.0), // Origen (centro de la escena)
         cVector3d(0.0, 0.0, 1.0), // Direcci�n del cenit (eje Z)
         cVector3d(1.0, 0.0, 0.0)); // Direcci�n del acimut (eje X)
 
-    // Configurar posici�n inicial de la c�mara
+    // Configurar posicion inicial de la c�mara
     camera->setSphericalDeg(cameraDistance, // Radio (distancia)
         0.0,          // �ngulo polar (inclinaci�n)
         0.0);         // �ngulo acimutal (rotaci�n horizontal)
@@ -123,6 +140,15 @@ int main(int argc, char* argv[])
     if (!mainObject) return -1;
     world->addChild(mainObject);
 
+
+    // Aplicar color al mainObject
+    material = new cMaterial();
+    cColorf color(1.0f, 0.6f, 0.6f);  
+    material->setColor(color);
+    mainObject->setMaterial(*material);
+
+
+
     // Cargar modelos hijos
     vector<string> modelPaths = {
         "./stls/ball1.stl",
@@ -136,6 +162,8 @@ int main(int argc, char* argv[])
         // "./stls/cover.stl", // descomentar si se quiere usar la tapa
     };
 
+
+
     for (const string& path : modelPaths)
     {
         cMultiMesh* child = loadModel(path);
@@ -144,6 +172,33 @@ int main(int argc, char* argv[])
             mainObject->addChild(child); // Agregar cada hijo al objeto principal
         }
     }
+
+    // Crear una lista de colores para los hijos
+    vector<cColorf> coloresHijos = {
+        cColorf(1.0f, 0.0f, 0.0f),  // Rojo
+        cColorf(0.0f, 1.0f, 0.0f),  // Verde
+        cColorf(0.0f, 0.0f, 1.0f),  // Azul
+        cColorf(1.0f, 1.0f, 0.0f),  // Amarillo
+        cColorf(1.0f, 0.0f, 1.0f),  // Magenta
+        cColorf(0.0f, 1.0f, 1.0f),  // Cian
+        cColorf(1.0f, 0.5f, 0.0f),  // Naranja
+        cColorf(0.5f, 0.5f, 0.5f),  // Gris
+    };
+
+    // Cargar los modelos hijos y asignarles colores
+    for (size_t i = 0; i < modelPaths.size(); ++i)
+    {
+        cMultiMesh* child = loadModel(modelPaths[i]);
+        if (child)
+        {
+            cMaterial* materialHijo = new cMaterial();
+            materialHijo->setColor(coloresHijos[i % coloresHijos.size()]); // Usar un color de la lista cíclicamente
+            child->setMaterial(*materialHijo);
+            mainObject->addChild(child);
+        }
+    }
+
+
 
     // LOAD NEEDLE
     needle = new cMultiMesh();
@@ -164,12 +219,20 @@ int main(int argc, char* argv[])
     rotation.identity();
     rotation.rotateAboutGlobalAxisDeg(cVector3d(0.0, 0.0, 1.0), 90); // Rotar 90 grados alrededor del eje Z
     needle->setLocalRot(rotation);
-
-
     needle->setLocalPos(cVector3d(0.0, 0.0, 0.0));
-
     needle->setShowBoundaryBox(true);
     world->addChild(needle); // A�adir la aguja al mundo, no al objeto principal
+
+    //NEEDLE CAMERA
+    
+    needleCamera = new cCamera(world);
+    world->addChild(needleCamera);
+    needleCamera->setSphericalDeg(cameraDistance, 0.0, 0.0);
+    needleCamera->setClippingPlanes(0.01, 1000.0);
+
+ 
+
+
 
     // Compute boundary box for the main object
     mainObject->computeBoundaryBox(true);
@@ -189,6 +252,7 @@ int main(int argc, char* argv[])
 
         // Poll events
         glfwPollEvents();
+
     }
 
     // Cleanup
@@ -198,12 +262,24 @@ int main(int argc, char* argv[])
     return 0;
 }
 
-void updateGraphics()
-{
+
+
+
+
+void updateGraphics() {
+    // Limpiar el buffer de color y profundidad para la vista principal
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    camera->renderView(800, 600);
+
+    // Renderizar la cámara principal usando todo el tamaño de la ventana
+    camera->setSphericalRadius(cameraDistance);
+    camera->renderView(800, 600);  // Renderiza la vista completa desde la cámara principal
+
+   
+
+    // Finalmente, actualizar la ventana
     glfwSwapBuffers(window);
 }
+
 
 void onMouseScrollCallback(GLFWwindow* a_window, double a_offsetX, double a_offsetY)
 {
@@ -212,7 +288,6 @@ void onMouseScrollCallback(GLFWwindow* a_window, double a_offsetX, double a_offs
 
     // Limitar el rango de zoom
     cameraDistance = cClamp(cameraDistance, 100.0, 1000.0);
-
     // Aplicar la nueva distancia a la c�mara
     camera->setSphericalRadius(cameraDistance);
 }
@@ -254,3 +329,39 @@ void onMouseMotionCallback(GLFWwindow* a_window, double a_posX, double a_posY)
         camera->setSphericalPolarDeg(polarDeg);
     }
 }
+// Callback para controlar el movimiento con las teclas
+void onKeyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, int a_mods)
+{
+    // Solo mover la aguja cuando la tecla es presionada
+    if (a_action == GLFW_PRESS || a_action == GLFW_REPEAT)
+    {
+        double moveSpeed = 10.0;  // Velocidad de movimiento de la aguja
+        cVector3d currentPos = needle->getLocalPos();
+
+        if (a_key == GLFW_KEY_UP)
+        {
+            needle->setLocalPos(currentPos + cVector3d(0.0, moveSpeed, 0.0));  // Mover hacia arriba
+        }
+        else if (a_key == GLFW_KEY_DOWN)
+        {
+            needle->setLocalPos(currentPos - cVector3d(0.0, moveSpeed, 0.0));  // Mover hacia abajo
+        }
+        else if (a_key == GLFW_KEY_LEFT)
+        {
+            needle->setLocalPos(currentPos - cVector3d(moveSpeed, 0.0, 0.0));  // Mover hacia la izquierda
+        }
+        else if (a_key == GLFW_KEY_RIGHT)
+        {
+            needle->setLocalPos(currentPos + cVector3d(moveSpeed, 0.0, 0.0));  // Mover hacia la derecha
+        }
+        else if (a_key == GLFW_KEY_W)
+        {
+            needle->setLocalPos(currentPos + cVector3d(0.0, 0.0, moveSpeed));  // Mover hacia adelante (eje Z)
+        }
+        else if (a_key == GLFW_KEY_S)
+        {
+            needle->setLocalPos(currentPos - cVector3d(0.0, 0.0, moveSpeed));  // Mover hacia atrás (eje Z)
+        }
+    }
+}
+
