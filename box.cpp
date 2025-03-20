@@ -41,6 +41,21 @@ double mouseX, mouseY;
 double cameraDistance = 500.0; // Distancia inicial de la c�mara
 const double zoomSpeed = 30.0; // Velocidad del zoom
 
+
+// POSITION THE NEEDLE INSIDE THE HOLES
+std::vector<cVector3d> holePositions = {
+    cVector3d(-60.0, -162.0, 60.0), // Posición del agujero 1 (-60, -162, 60)
+    cVector3d(-27.0, -162.0, 60.0),   // Posición del agujero 2  (-27, -162, 60)
+    cVector3d(6.0, -162.0, 60.0),   // Posición del agujero 3 (6, -162, 60)
+    cVector3d(-60.0, -162.0, 27.0),   // Posición del agujero 4  (-60, -162, 27)
+    cVector3d(-27.0, -162.0, 27.0),    // Posición del agujero 5  (-27, -162, 27)
+    cVector3d(6.0, -162.0, 27.0),    // Posición del agujero 6 (6, -162, 27)
+    cVector3d(-60.0, 165.0, -6.0),   // Posición del agujero 7 (-60, -165, -6)
+    cVector3d(-27.0, -165.0, -6.0),    // Posición del agujero 8 (-27, -165, -6)
+    cVector3d(6.0, -165.0, -6.0)     // Posición del agujero 9  (6, -165, -6)
+};
+
+
 //------------------------------------------------------------------------------
 // DECLARED FUNCTIONS
 //------------------------------------------------------------------------------
@@ -79,6 +94,26 @@ cMultiMesh* loadModel(const std::string& filepath)
 
 int main(int argc, char* argv[])
 {
+    //--------------------------------------------------------------------------
+    // INITIALIZATION
+    //--------------------------------------------------------------------------
+
+    cout << endl;
+    cout << "-----------------------------------" << endl;
+    cout << "CHAI3D" << endl;
+    cout << "OPERATION: THE GAME" << endl;
+    cout << "Grupo 1" << endl;
+    cout << "-----------------------------------" << endl << endl << endl;
+    cout << "Keyboard Options:" << endl << endl;
+    cout << "[← →] - Move the needle sideways" << endl;
+    cout << "[↑ ↓] - Move the needle inside/outside the box" << endl;
+    cout << "[w] - Move the needle up" << endl;
+    cout << "[w] - Move the needle down" << endl;
+    cout << "";
+    cout << endl << endl;
+
+
+
     // Initialize GLFW
     if (!glfwInit())
     {
@@ -230,9 +265,6 @@ int main(int argc, char* argv[])
     needleCamera->setSphericalDeg(cameraDistance, 0.0, 0.0);
     needleCamera->setClippingPlanes(0.01, 1000.0);
 
- 
-
-
 
     // Compute boundary box for the main object
     mainObject->computeBoundaryBox(true);
@@ -335,7 +367,7 @@ void onKeyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action
     // Solo mover la aguja cuando la tecla es presionada
     if (a_action == GLFW_PRESS || a_action == GLFW_REPEAT)
     {
-        double moveSpeed = 10.0;  // Velocidad de movimiento de la aguja
+        double moveSpeed = 3.0;  // Velocidad de movimiento de la aguja
         cVector3d currentPos = needle->getLocalPos();
 
         if (a_key == GLFW_KEY_UP)
@@ -362,6 +394,26 @@ void onKeyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action
         {
             needle->setLocalPos(currentPos - cVector3d(0.0, 0.0, moveSpeed));  // Mover hacia atrás (eje Z)
         }
+
+        /// GET NEEDLE POSITION
+        //cVector3d needlePosition = needle->getLocalPos(); // Obtener la posición local de la aguja
+        //cout << "Posición de la aguja: ("
+        //    << needlePosition.x() << ", "
+        //    << needlePosition.y() << ", "
+        //    << needlePosition.z() << ")"
+        //    << endl;
+        ///
+        // Mover la aguja según la tecla presionada
+        if (a_key >= GLFW_KEY_1 && a_key <= GLFW_KEY_9)
+        {
+            int holeIndex = a_key - GLFW_KEY_1; // Convertir la tecla a un índice (0-8)
+            if (holeIndex < holePositions.size())
+            {
+                // Mover la aguja a la posición del agujero correspondiente
+                needle->setLocalPos(holePositions[holeIndex]);
+            }
+        }
+
     }
 }
 
