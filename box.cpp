@@ -157,6 +157,7 @@ int main(int argc, char* argv[])
 
     // resize tool mesh model
     needle->scale(2.0);
+    // demo
 
     // Rotar la aguja para que quede en posici�n horizontal
     cMatrix3d rotation;
