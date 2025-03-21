@@ -1,0 +1,548 @@
+#include "chai3d.h"
+#include <GLFW/glfw3.h>
+#include <vector>
+
+using namespace chai3d;
+using namespace std;
+
+//------------------------------------------------------------------------------
+// STATES
+//------------------------------------------------------------------------------
+enum MouseStates
+{
+    MOUSE_IDLE,
+    MOUSE_MOVE_CAMERA
+};
+
+ //État du jeu
+enum GameState
+{
+    WAIT_FOR_NEEDLE,
+    WAIT_FOR_GREEN_BALL,
+    WAIT_FOR_BLUE_BALL,
+    GAME_COMPLETE
+};
+
+//------------------------------------------------------------------------------
+// DECLARED VARIABLES
+//------------------------------------------------------------------------------
+cWorld* world;
+cCamera* camera;
+cDirectionalLight* light;
+cMultiMesh* needle;
+cMultiMesh* mainObject;
+GLFWwindow* window;
+cBackground* background;
+cViewPanel* viewPanel;
+cFontPtr font;
+cMaterial* material;
+cCamera* needleCamera;
+cCamera* textCamera;
+cMultiMesh* greenBall = nullptr;
+cMultiMesh* blueBall = nullptr;
+
+ //Widgets de texte
+cLabel* instructionLabel;
+GameState currentGameState = WAIT_FOR_NEEDLE;
+
+// mouse state
+MouseStates mouseState = MOUSE_IDLE;
+
+// last mouse position
+double mouseX, mouseY;
+
+// Variables para el zoom
+double cameraDistance = 500.0; // Distancia inicial de la c�mara
+const double zoomSpeed = 30.0; // Velocidad del zoom
+
+
+// POSITION THE NEEDLE INSIDE THE HOLES
+std::vector<cVector3d> holePositions = {
+    cVector3d(-60.0, -162.0, 60.0), // Posición del agujero 1 (-60, -162, 60)
+    cVector3d(-27.0, -162.0, 60.0),   // Posición del agujero 2  (-27, -162, 60)
+    cVector3d(6.0, -162.0, 60.0),   // Posición del agujero 3 (6, -162, 60)
+    cVector3d(-60.0, -162.0, 27.0),   // Posición del agujero 4  (-60, -162, 27)
+    cVector3d(-27.0, -162.0, 27.0),    // Posición del agujero 5  (-27, -162, 27)
+    cVector3d(6.0, -162.0, 27.0),    // Posición del agujero 6 (6, -162, 27)
+    cVector3d(-60.0, 165.0, -6.0),   // Posición del agujero 7 (-60, -165, -6)
+    cVector3d(-27.0, -165.0, -6.0),    // Posición del agujero 8 (-27, -165, -6)
+    cVector3d(6.0, -165.0, -6.0)     // Posición del agujero 9  (6, -165, -6)
+};
+
+
+//------------------------------------------------------------------------------
+// DECLARED FUNCTIONS
+//------------------------------------------------------------------------------
+// callback to handle mouse click
+void onMouseButtonCallback(GLFWwindow* a_window, int a_button, int a_action, int a_mods);
+
+// callback to handle mouse motion
+void onMouseMotionCallback(GLFWwindow* a_window, double a_posX, double a_posY);
+
+// callback to handle mouse scroll
+void onMouseScrollCallback(GLFWwindow* a_window, double a_offsetX, double a_offsetY);
+
+// callback para teclado
+void onKeyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, int a_mods);
+
+// Callback to render scene
+void updateGraphics();
+
+ //callback to handle clicking on an object
+bool handleObjectSelection(int x, int y);
+
+ //callback to update the text (the instructions)
+void updateInstructionText();
+
+// Función para cargar un modelo y crear un contenedor de mallas múltiples
+cMultiMesh* loadModel(const std::string& filepath)
+{
+    cMultiMesh* model = new cMultiMesh();
+    if (!model->loadFromFile(filepath))
+    {
+        cout << "Error: Could not load STL file " << filepath << endl;
+        return nullptr;
+    }
+    return model;
+}
+
+//------------------------------------------------------------------------------
+// MAIN FUNCTION
+//------------------------------------------------------------------------------
+
+int main(int argc, char* argv[])
+{
+    //--------------------------------------------------------------------------
+    // INITIALIZATION
+    //--------------------------------------------------------------------------
+
+    cout << endl;
+    cout << "-----------------------------------" << endl;
+    cout << "CHAI3D" << endl;
+    cout << "OPERATION: THE GAME" << endl;
+    cout << "Grupo 1" << endl;
+    cout << "-----------------------------------" << endl << endl << endl;
+    cout << "Keyboard Options:" << endl << endl;
+    cout << "[← →] - Move the needle sideways" << endl;
+    cout << "[↑ ↓] - Move the needle inside/outside the box" << endl;
+    cout << "[w] - Move the needle up" << endl;
+    cout << "[w] - Move the needle down" << endl;
+    cout << "";
+    cout << endl << endl;
+
+
+
+    // Initialize GLFW
+    if (!glfwInit())
+    {
+        cout << "Failed to initialize GLFW" << endl;
+        return -1;
+    }
+
+    // Create Window
+    window = glfwCreateWindow(800, 600, "Chai3D STL Viewer", NULL, NULL);
+    if (!window)
+    {
+        cout << "Failed to create window" << endl;
+        glfwTerminate();
+        return -1;
+    }
+    glfwMakeContextCurrent(window);
+
+    // set GLFW mouse scroll callback
+    glfwSetScrollCallback(window, onMouseScrollCallback);
+
+    // set GLFW mouse position callback
+    glfwSetCursorPosCallback(window, onMouseMotionCallback);
+
+    // set GLFW mouse button callback
+    glfwSetMouseButtonCallback(window, onMouseButtonCallback);
+
+    glfwSetKeyCallback(window, onKeyCallback);
+
+
+    // Create a new world
+    world = new cWorld();
+
+    // LIGHTNING
+    world->m_backgroundColor.set(0.9f, 0.9f, 0.9f);
+
+    // Create a camera and position it FARTHER
+    camera = new cCamera(world);
+    world->addChild(camera);
+    // Configurar la camara en coordenadas esfericas
+    camera->setSphericalReferences(cVector3d(0.0, 0.0, 0.0), // Origen (centro de la escena)
+        cVector3d(0.0, 0.0, 1.0), // Direcci�n del cenit (eje Z)
+        cVector3d(1.0, 0.0, 0.0)); // Direcci�n del acimut (eje X)
+
+    // Configurar posicion inicial de la c�mara
+    camera->setSphericalDeg(cameraDistance, // Radio (distancia)
+        0.0,          // �ngulo polar (inclinaci�n)
+        0.0);         // �ngulo acimutal (rotaci�n horizontal)
+    camera->setClippingPlanes(0.01, 1000.0);
+
+
+    // Create a light source
+    light = new cDirectionalLight(world);
+    world->addChild(light);
+    light->setEnabled(true);
+    light->setDir(-1.0, -1.0, -1.0);
+
+    // Load STL model
+    cMultiMesh* mainObject = loadModel("C:/Users/hpetr/sip-box/stls/box_wo_cover.stl");
+    if (!mainObject) return -1;
+    world->addChild(mainObject);
+
+
+    // Aplicar color al mainObject
+    material = new cMaterial();
+    cColorf color(1.0f, 0.6f, 0.6f);
+    material->setColor(color);
+    mainObject->setMaterial(*material);
+
+
+    // Cargar modelos hijos
+    vector<string> modelPaths = {
+        "C:/Users/hpetr/sip-box/stls/ball1.stl",
+        "C:/Users/hpetr/sip-box/stls/ball2.stl",
+        "C:/Users/hpetr/sip-box/stls/ball3.stl",
+        "C:/Users/hpetr/sip-box/stls/stick1.stl",
+        "C:/Users/hpetr/sip-box/stls/stick2.stl",
+        "C:/Users/hpetr/sip-box/stls/stick3.stl",
+        "C:/Users/hpetr/sip-box/stls/cube.stl",
+        "C:/Users/hpetr/sip-box/stls/stick4.stl",
+        // "./stls/cover.stl", // descomentar si se quiere usar la tapa
+    };
+
+    for (const string& path : modelPaths)
+    {
+        cMultiMesh* child = loadModel(path);
+        if (child)
+        {
+            mainObject->addChild(child); // Agregar cada hijo al objeto principal
+        }
+    }
+
+    // Crear una lista de colores para los hijos
+    vector<cColorf> coloresHijos = {
+        cColorf(1.0f, 0.0f, 0.0f),  // Rojo
+        cColorf(0.0f, 1.0f, 0.0f),  // Verde
+        cColorf(0.0f, 0.0f, 1.0f),  // Azul
+        cColorf(1.0f, 1.0f, 0.0f),  // Amarillo
+        cColorf(1.0f, 0.0f, 1.0f),  // Magenta
+        cColorf(0.0f, 1.0f, 1.0f),  // Cian
+        cColorf(1.0f, 0.5f, 0.0f),  // Naranja
+        cColorf(0.5f, 0.5f, 0.5f),  // Gris
+    };
+
+    // Cargar los modelos hijos y asignarles colores
+    for (size_t i = 0; i < modelPaths.size(); ++i)
+    {
+        cMultiMesh* child = loadModel(modelPaths[i]);
+        if (child)
+        {
+            cMaterial* materialHijo = new cMaterial();
+            materialHijo->setColor(coloresHijos[i % coloresHijos.size()]); // Usar un color de la lista cíclicamente
+            child->setMaterial(*materialHijo);
+            mainObject->addChild(child);
+        }
+    }
+
+
+
+    // LOAD NEEDLE
+    needle = new cMultiMesh();
+
+    // load a needle-like mesh and attach it to the tool
+    bool fileload = needle->loadFromFile("C:/Users/hpetr/sip-box/stls/needle.stl");
+    if (!fileload) {
+        std::cout << "Error: Could not load needle.stl" << std::endl;
+        return -1;
+    }
+
+    // resize tool mesh model
+    needle->scale(2.0);
+    // demo
+
+    // Rotar la aguja para que quede en posicion horizontal
+    cMatrix3d rotation;
+    rotation.identity();
+    rotation.rotateAboutGlobalAxisDeg(cVector3d(0.0, 0.0, 1.0), 90); // Rotar 90 grados alrededor del eje Z
+    needle->setLocalRot(rotation);
+    needle->setLocalPos(cVector3d(0.0, 0.0, 0.0));
+    needle->setShowBoundaryBox(true);
+    world->addChild(needle); // A�adir la aguja al mundo, no al objeto principal
+
+    //NEEDLE CAMERA
+
+    needleCamera = new cCamera(world);
+    world->addChild(needleCamera);
+    needleCamera->setSphericalDeg(cameraDistance, 0.0, 0.0);
+    needleCamera->setClippingPlanes(0.01, 1000.0);
+
+    //TEXT CAMERA
+
+    textCamera = new cCamera(world);
+    world->addChild(textCamera);
+    textCamera->setSphericalDeg(cameraDistance, 0.0, 0.0);
+    textCamera->setClippingPlanes(0.01, 1000.0);
+   
+    // Compute boundary box for the main object
+    mainObject->computeBoundaryBox(true);
+    cVector3d min = mainObject->getBoundaryMin();
+    cVector3d max = mainObject->getBoundaryMax();
+    cVector3d center = (min + max) * 0.5;
+    cVector3d boxSize = max - min; // Revisar (no se usa)
+
+    // Translate the object to the center
+    mainObject->translate(-center);
+
+    // Create and set up the widget text
+    cout << "Initialisation de la police et du texte..." << endl;
+    // Initialization of the police
+    cFontPtr font = cFont::create();
+
+    try {
+        // Load a police from a file (not working for me lol)
+        bool fontLoaded = font->loadFromFile("./resources/fonts/arial.ttf");
+        if (!fontLoaded) {
+            cout << "Impossible de charger la police Arial, utilisation de la police par défaut." << endl;
+            font = cFont::create();  // Police bu default of chai3D
+        }
+    }
+    catch (...) {
+        // In case of error, use the default police of chai3D
+        cout << "Erreur lors du chargement de la police, utilisation de la police par défaut." << endl;
+        font = cFont::create();
+    }
+
+    instructionLabel = new cLabel(font);
+    textCamera->m_frontLayer->addChild(instructionLabel);
+    instructionLabel->setLocalPos(20, 40);
+    instructionLabel->setFontScale(1.2);
+    instructionLabel->m_fontColor.setBlack();
+    instructionLabel->setText("Cliquez sur l'aiguille pour commencer");
+    cout << "Texte initialisé avec succès" << endl;
+
+    // Main loop
+    while (!glfwWindowShouldClose(window))
+    {
+        // Render scene
+        updateGraphics();
+
+        // Poll events
+        glfwPollEvents();
+
+    }
+
+    // Cleanup
+    glfwDestroyWindow(window);
+    glfwTerminate();
+
+    return 0;
+}
+
+
+void updateGraphics() {
+    // Limpiar el buffer de color y profundidad para la vista principal
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // Renderizar la cámara principal usando todo el tamaño de la ventana
+    camera->setSphericalRadius(cameraDistance);
+    camera->renderView(800, 600);  // Renderiza la vista completa desde la cámara principal
+    //textCamera->renderView(800, 600);
+
+
+    // Finalmente, actualizar la ventana
+    glfwSwapBuffers(window);
+}
+
+
+void onMouseScrollCallback(GLFWwindow* a_window, double a_offsetX, double a_offsetY)
+{
+    // Ajustar la distancia de la c�mara seg�n el movimiento de la rueda
+    cameraDistance -= a_offsetY * zoomSpeed;
+
+    // Limitar el rango de zoom
+    cameraDistance = cClamp(cameraDistance, 100.0, 1000.0);
+    // Aplicar la nueva distancia a la c�mara
+    camera->setSphericalRadius(cameraDistance);
+}
+
+void onMouseButtonCallback(GLFWwindow* a_window, int a_button, int a_action, int a_mods)
+{
+    if (a_button == GLFW_MOUSE_BUTTON_LEFT && a_action == GLFW_PRESS)
+    {
+        // Get cursor position
+        double mouseX, mouseY;
+        glfwGetCursorPos(a_window, &mouseX, &mouseY);
+
+        // Handle object selection
+        if (handleObjectSelection((int)mouseX, (int)mouseY)) {
+            // If an object was selected, don't change the camera mode
+            return;
+        }
+
+        // If no object was selected, update mouse state for camera movement
+        mouseState = MOUSE_MOVE_CAMERA;
+    }
+    else if (a_button == GLFW_MOUSE_BUTTON_LEFT && a_action == GLFW_RELEASE)
+    {
+        // update mouse state
+        mouseState = MOUSE_IDLE;
+    }
+}
+
+bool handleObjectSelection(int x, int y)
+{
+    // Calculer les coordonnées de la fenêtre normalisées (-1.0 à 1.0)
+    int windowWidth, windowHeight;
+    glfwGetWindowSize(window, &windowWidth, &windowHeight);
+
+    double normalizedX = 2.0 * ((double)x / (double)windowWidth) - 1.0;
+    double normalizedY = 1.0 - 2.0 * ((double)y / (double)windowHeight);
+
+    // Créer un rayon à partir de la caméra en fonction des coordonnées de l'écran
+    cVector3d rayOrigin = camera->getLocalPos();
+    cVector3d rayDirection = camera->getLocalRot() * cVector3d(0.0, 0.0, -1.0);  // direction du rayon
+
+    // Normaliser la direction
+    rayDirection.normalize();
+
+    // Liste pour stocker les objets intersectés
+    cCollisionRecorder recorder;
+    cCollisionSettings settings;
+
+    // Vérifier les intersections selon l'état du jeu
+    bool objectSelected = false;
+
+    if (currentGameState == WAIT_FOR_NEEDLE)
+    {
+        // Détecter si l'aiguille est cliquée
+        if (needle->computeCollisionDetection(rayOrigin, rayDirection, recorder, settings))
+        {
+            cout << "Aiguille sélectionnée !" << endl;
+            currentGameState = WAIT_FOR_GREEN_BALL;
+            updateInstructionText();
+            objectSelected = true;
+        }
+    }
+    else if (currentGameState == WAIT_FOR_GREEN_BALL && greenBall != nullptr)
+    {
+        // Détecter si la boule verte est cliquée
+        if (greenBall->computeCollisionDetection(rayOrigin, rayDirection, recorder, settings))
+        {
+            cout << "Boule verte sélectionnée !" << endl;
+            currentGameState = WAIT_FOR_BLUE_BALL;
+            updateInstructionText();
+            objectSelected = true;
+        }
+    }
+    else if (currentGameState == WAIT_FOR_BLUE_BALL && blueBall != nullptr)
+    {
+        // Détecter si la boule bleue est cliquée
+        if (blueBall->computeCollisionDetection(rayOrigin, rayDirection, recorder, settings))
+        {
+            cout << "Boule bleue sélectionnée !" << endl;
+            currentGameState = GAME_COMPLETE;
+            updateInstructionText();
+            objectSelected = true;
+        }
+    }
+
+    return objectSelected;
+}
+
+void updateInstructionText()
+{
+    switch (currentGameState)
+    {
+    case WAIT_FOR_NEEDLE:
+        instructionLabel->setText("Cliquez sur l'aiguille pour commencer");
+        break;
+    case WAIT_FOR_GREEN_BALL:
+        instructionLabel->setText("Cliquez sur la boule verte");
+        break;
+    case WAIT_FOR_BLUE_BALL:
+        instructionLabel->setText("Cliquez sur la boule bleue");
+        break;
+    case GAME_COMPLETE:
+        instructionLabel->setText("Félicitations ! Vous avez terminé le jeu !");
+        break;
+    }
+}
+
+void onMouseMotionCallback(GLFWwindow* a_window, double a_posX, double a_posY)
+{
+    if (mouseState == MOUSE_MOVE_CAMERA)
+    {
+        // compute mouse motion
+        int dx = a_posX - mouseX;
+        int dy = a_posY - mouseY;
+        mouseX = a_posX;
+        mouseY = a_posY;
+
+        // compute new camera angles
+        double azimuthDeg = camera->getSphericalAzimuthDeg() - 0.5 * dx;
+        double polarDeg = camera->getSphericalPolarDeg() - 0.5 * dy;
+
+        // assign new angles
+        camera->setSphericalAzimuthDeg(azimuthDeg);
+        camera->setSphericalPolarDeg(polarDeg);
+    }
+}
+// Callback para controlar el movimiento con las teclas
+void onKeyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, int a_mods)
+{
+    // Solo mover la aguja cuando la tecla es presionada
+    if (a_action == GLFW_PRESS || a_action == GLFW_REPEAT)
+    {
+        double moveSpeed = 3.0;  // Velocidad de movimiento de la aguja
+        cVector3d currentPos = needle->getLocalPos();
+
+        if (a_key == GLFW_KEY_UP)
+        {
+            needle->setLocalPos(currentPos + cVector3d(0.0, moveSpeed, 0.0));  // Mover hacia arriba
+        }
+        else if (a_key == GLFW_KEY_DOWN)
+        {
+            needle->setLocalPos(currentPos - cVector3d(0.0, moveSpeed, 0.0));  // Mover hacia abajo
+        }
+        else if (a_key == GLFW_KEY_LEFT)
+        {
+            needle->setLocalPos(currentPos - cVector3d(moveSpeed, 0.0, 0.0));  // Mover hacia la izquierda
+        }
+        else if (a_key == GLFW_KEY_RIGHT)
+        {
+            needle->setLocalPos(currentPos + cVector3d(moveSpeed, 0.0, 0.0));  // Mover hacia la derecha
+        }
+        else if (a_key == GLFW_KEY_W)
+        {
+            needle->setLocalPos(currentPos + cVector3d(0.0, 0.0, moveSpeed));  // Mover hacia adelante (eje Z)
+        }
+        else if (a_key == GLFW_KEY_S)
+        {
+            needle->setLocalPos(currentPos - cVector3d(0.0, 0.0, moveSpeed));  // Mover hacia atrás (eje Z)
+        }
+
+        /// GET NEEDLE POSITION
+        //cVector3d needlePosition = needle->getLocalPos(); // Obtener la posición local de la aguja
+        //cout << "Posición de la aguja: ("
+        //    << needlePosition.x() << ", "
+        //    << needlePosition.y() << ", "
+        //    << needlePosition.z() << ")"
+        //    << endl;
+        ///
+        // Mover la aguja según la tecla presionada
+        if (a_key >= GLFW_KEY_1 && a_key <= GLFW_KEY_9)
+        {
+            int holeIndex = a_key - GLFW_KEY_1; // Convertir la tecla a un índice (0-8)
+            if (holeIndex < holePositions.size())
+            {
+                // Mover la aguja a la posición del agujero correspondiente
+                needle->setLocalPos(holePositions[holeIndex]);
+            }
+        }
+
+    }
+}
