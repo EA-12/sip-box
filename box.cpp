@@ -15,32 +15,81 @@ enum MouseStates
 };
 
 //------------------------------------------------------------------------------
+// CONSTANTS
+//------------------------------------------------------------------------------
+
+string objects[8] = { "Blue ball", "Red ball", "Green ball", "Orange cube", "Blue stick", "Yellow stick", "Pink stick", "Gray stick"};
+
+//------------------------------------------------------------------------------
 // DECLARED VARIABLES
 //------------------------------------------------------------------------------
 cWorld* world;
 cCamera* camera;
+
+// a viewport to display the scene viewed by the camera
+cViewport* viewport = nullptr;
+
+// fullscreen mode
+bool fullscreen = false;
+
+// mirrored display
+bool mirroredDisplay = false;
+
 cDirectionalLight* light;
 cMultiMesh* needle;
 cMultiMesh* mainObject;
-GLFWwindow* window;
 cBackground* background;
-cViewPanel* viewPanel;
 cFontPtr font;
 cMaterial* material;
 cCamera* needleCamera;
 
+// a label to display the rate [Hz] at which the simulation is running
+cLabel* labelRates;
 
+// a label to explain what is happening
+cLabel* labelMessage;
+
+// a widget panel
+cPanel* panel;
+
+// some labels
+cLabel* instrucciones;
+cLabel* object1;
+cLabel* object2;
+
+GLFWwindow* window = nullptr;
+
+cMultiMesh* model;
+
+// a flag to indicate if the haptic simulation currently running
+bool simulationRunning = false;
+
+// a flag to indicate if the haptic simulation has terminated
+bool simulationFinished = true;
+
+// a frequency counter to measure the simulation graphic rate
+cFrequencyCounter freqCounterGraphics;
+
+// a frequency counter to measure the simulation haptic rate
+cFrequencyCounter freqCounterHaptics;
+
+// mouse position
+double mouseX, mouseY;
+
+// current size of GLFW window
+int windowW = 0;
+int windowH = 0;
+
+// current size of GLFW framebuffer
+int framebufferW = 0;
+int framebufferH = 0;
 
 // mouse state
 MouseStates mouseState = MOUSE_IDLE;
 
-// last mouse position
-double mouseX, mouseY;
-
 // Variables para el zoom
 double cameraDistance = 500.0; // Distancia inicial de la c�mara
 const double zoomSpeed = 30.0; // Velocidad del zoom
-
 
 // POSITION THE NEEDLE INSIDE THE HOLES
 std::vector<cVector3d> holePositions = {
@@ -54,7 +103,6 @@ std::vector<cVector3d> holePositions = {
     cVector3d(-27.0, -165.0, -6.0),    // Posición del agujero 8 (-27, -165, -6)
     cVector3d(6.0, -165.0, -6.0)     // Posición del agujero 9  (6, -165, -6)
 };
-
 
 //------------------------------------------------------------------------------
 // DECLARED FUNCTIONS
@@ -71,13 +119,32 @@ void onMouseScrollCallback(GLFWwindow* a_window, double a_offsetX, double a_offs
 // callback para teclado
 void onKeyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, int a_mods);
 
+// callback when the window is resized
+void onWindowSizeCallback(GLFWwindow* a_window, int a_width, int a_height);
+
+// callback when the window framebuffer is resized
+void onFrameBufferSizeCallback(GLFWwindow* a_window, int a_width, int a_height);
+
+// callback when window content scaling is modified
+void onWindowContentScaleCallback(GLFWwindow* a_window, float a_xscale, float a_yscale);
+
+// callback when an error GLFW occurs
+void onErrorCallback(int a_error, const char* a_description);
+
 // Callback to render scene
-void updateGraphics();
+void renderGraphics();
+
+// this function contains the main haptics simulation loop
+void renderHaptics(void);
+
+// this function closes the application
+void close(void);
+
 
 // Función para cargar un modelo y crear un contenedor de mallas múltiples
 cMultiMesh* loadModel(const std::string& filepath)
 {
-    cMultiMesh* model = new cMultiMesh();
+    model = new cMultiMesh();
     if (!model->loadFromFile(filepath))
     {
         cout << "Error: Could not load STL file " << filepath << endl;
@@ -85,8 +152,6 @@ cMultiMesh* loadModel(const std::string& filepath)
     }
     return model;
 }
-
-
 
 //------------------------------------------------------------------------------
 // MAIN FUNCTION
@@ -112,27 +177,58 @@ int main(int argc, char* argv[])
     cout << "";
     cout << endl << endl;
 
-
-
     // Initialize GLFW
     if (!glfwInit())
     {
         cout << "Failed to initialize GLFW" << endl;
+        cSleepMs(1000);
         return -1;
     }
 
+    // set GLFW error callback
+    glfwSetErrorCallback(onErrorCallback);
+
+    // compute desired size of window
+    const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+    windowW = 0.8 * mode->height;
+    windowH = 0.5 * mode->height;
+    int x = 0.5 * (mode->width - windowW);
+    int y = 0.5 * (mode->height - windowH);
+
+    // set OpenGL version
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+
+    // enable double buffering
+    glfwWindowHint(GLFW_DOUBLEBUFFER, GLFW_TRUE);
+
+    // set the desired number of samples to use for multisampling
+    glfwWindowHint(GLFW_SAMPLES, 4);
+
+    // specify that window should be resized based on monitor content scale
+    glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
+
     // Create Window
-    window = glfwCreateWindow(800, 600, "Chai3D STL Viewer", NULL, NULL);
+    window = glfwCreateWindow(windowW, windowH, "Chai3D STL Viewer", NULL, NULL);
     if (!window)
     {
         cout << "Failed to create window" << endl;
+        cSleepMs(1000);
         glfwTerminate();
-        return -1;
+        return 1;
     }
-    glfwMakeContextCurrent(window);
 
-    // set GLFW mouse scroll callback
-    glfwSetScrollCallback(window, onMouseScrollCallback);
+    // set GLFW key callback
+    glfwSetKeyCallback(window, onKeyCallback);
+
+    // set GLFW window size callback
+    glfwSetWindowSizeCallback(window, onWindowSizeCallback);
+
+    // set GLFW framebuffer size callback
+    glfwSetFramebufferSizeCallback(window, onFrameBufferSizeCallback);
+
+    // set GLFW window content scaling callback
+    glfwSetWindowContentScaleCallback(window, onWindowContentScaleCallback);
 
     // set GLFW mouse position callback
     glfwSetCursorPosCallback(window, onMouseMotionCallback);
@@ -140,8 +236,27 @@ int main(int argc, char* argv[])
     // set GLFW mouse button callback
     glfwSetMouseButtonCallback(window, onMouseButtonCallback);
 
-    glfwSetKeyCallback(window, onKeyCallback);
+    // get width and height of window
+    glfwGetFramebufferSize(window, &framebufferW, &framebufferH);
 
+    // set position of window
+    glfwSetWindowPos(window, x, y);
+
+    // set window size
+    glfwSetWindowSize(window, windowW, windowH);
+
+    // set GLFW current display context
+    glfwMakeContextCurrent(window);
+
+#ifdef GLEW_VERSION
+    // initialize GLEW library
+    if (glewInit() != GLEW_OK)
+    {
+        cout << "failed to initialize GLEW library" << endl;
+        glfwTerminate();
+        return 1;
+    }
+#endif
 
     // Create a new world
     world = new cWorld();
@@ -152,6 +267,7 @@ int main(int argc, char* argv[])
     // Create a camera and position it FARTHER
     camera = new cCamera(world);
     world->addChild(camera);
+
     // Configurar la camara en coordenadas esfericas
     camera->setSphericalReferences(cVector3d(0.0, 0.0, 0.0), // Origen (centro de la escena)
         cVector3d(0.0, 0.0, 1.0), // Direcci�n del cenit (eje Z)
@@ -161,28 +277,32 @@ int main(int argc, char* argv[])
     camera->setSphericalDeg(cameraDistance, // Radio (distancia)
         0.0,          // �ngulo polar (inclinaci�n)
         0.0);         // �ngulo acimutal (rotaci�n horizontal)
-    camera->setClippingPlanes(0.01, 1000.0);
 
+    camera->setClippingPlanes(0.01, 1000.0);
+    camera->setStereoEyeSeparation(0.03);
+    camera->setStereoFocalLength(1.8);
+
+    // set vertical mirrored display mode
+    camera->setMirrorVertical(mirroredDisplay);
 
     // Create a light source
     light = new cDirectionalLight(world);
     world->addChild(light);
+    // camera->addChild(light);
     light->setEnabled(true);
+    light->setLocalPos(0.0, 0.5, 0.0);
     light->setDir(-1.0, -1.0, -1.0);
 
     // Load STL model
-    cMultiMesh* mainObject = loadModel("./stls/box_wo_cover.stl");
+    mainObject = loadModel("./stls/box_wo_cover.stl");
     if (!mainObject) return -1;
     world->addChild(mainObject);
-
 
     // Aplicar color al mainObject
     material = new cMaterial();
     cColorf color(1.0f, 0.6f, 0.6f);  
     material->setColor(color);
     mainObject->setMaterial(*material);
-
-
 
     // Cargar modelos hijos
     vector<string> modelPaths = {
@@ -196,8 +316,6 @@ int main(int argc, char* argv[])
         "./stls/stick4.stl",
         // "./stls/cover.stl", // descomentar si se quiere usar la tapa
     };
-
-
 
     for (const string& path : modelPaths)
     {
@@ -233,8 +351,6 @@ int main(int argc, char* argv[])
         }
     }
 
-
-
     // LOAD NEEDLE
     needle = new cMultiMesh();
 
@@ -247,7 +363,6 @@ int main(int argc, char* argv[])
 
     // resize tool mesh model
     needle->scale(2.0);
-   
 
     // Rotar la aguja para que quede en posici�n horizontal
     cMatrix3d rotation;
@@ -261,12 +376,10 @@ int main(int argc, char* argv[])
     world->addChild(needle); // A�adir la aguja al mundo, no al objeto principal
 
     //NEEDLE CAMERA
-    
     needleCamera = new cCamera(world);
     world->addChild(needleCamera);
     needleCamera->setSphericalDeg(cameraDistance, 0.0, 0.0);
     needleCamera->setClippingPlanes(0.01, 1000.0);
-
 
     // Compute boundary box for the main object
     mainObject->computeBoundaryBox(true);
@@ -278,11 +391,84 @@ int main(int argc, char* argv[])
     // Translate the object to the center
     mainObject->translate(-center);
 
+//--------------------------------------------------------------------------
+// WIDGETS
+//--------------------------------------------------------------------------
+
+// create a font
+    font = NEW_CFONT_CALIBRI_20();
+
+    // create a label to display the haptic and graphic rate of the simulation
+    labelRates = new cLabel(font);
+    camera->m_frontLayer->addChild(labelRates);
+
+    // set font color
+    labelRates->m_fontColor.setBlack();
+
+    // create a background
+    background = new cBackground();
+    camera->m_backLayer->addChild(background);
+
+    // set background properties
+    background->setCornerColors(cColorf(1.0, 1.0, 1.0),
+        cColorf(1.0, 1.0, 1.0),
+        cColorf(0.8, 0.8, 0.8),
+        cColorf(0.8, 0.8, 0.8));
+
+    // a widget panel
+    panel = new cPanel();
+    camera->m_frontLayer->addChild(panel);
+    panel->setSize(500, 80);
+    panel->m_material->setGrayDim();
+    panel->setTransparencyLevel(0.8);
+
+    // instructions
+    instrucciones = new cLabel(font);
+    panel->addChild(instrucciones);
+    instrucciones->setText("To make him better, touch the following objects with the needle:");
+    instrucciones->setLocalPos(10, 60, 0.1);
+    instrucciones->m_fontColor.setWhite();
+
+    int num1 = rand() % 7 + 0;
+    object1 = new cLabel(font);
+    panel->addChild(object1);
+    object1->setText(objects[num1]);
+    object1->setLocalPos(10, 40, 0.1);
+    object1->m_fontColor.setWhite();
+
+    int num2 = rand() % 7 + 0;
+    object2 = new cLabel(font);
+    panel->addChild(object2);
+    object2->setText(objects[num2]);
+    object2->setLocalPos(10, 20, 0.1);
+    object2->m_fontColor.setWhite();
+
+    // create a label with a small message
+    labelMessage = new cLabel(font);
+    camera->m_frontLayer->addChild(labelMessage);
+
+    // set font color
+    labelMessage->m_fontColor.setBlack();
+
+    // set text message
+    labelMessage->setText("OPERATION. Make him better or get the buzzer!");
+
+    //--------------------------------------------------------------------------
+    // VIEWPORT DISPLAY
+    //--------------------------------------------------------------------------
+
+    // get content scale factor
+    float contentScaleW, contentScaleH;
+    glfwGetWindowContentScale(window, &contentScaleW, &contentScaleH);
+
+    // create a viewport to display the scene.
+    viewport = new cViewport(camera, contentScaleW, contentScaleH);
+
     // Main loop
     while (!glfwWindowShouldClose(window))
     {
         // Render scene
-        updateGraphics();
+        renderGraphics();
 
         // Poll events
         glfwPollEvents();
@@ -300,7 +486,8 @@ int main(int argc, char* argv[])
 
 
 
-void updateGraphics() {
+/* 
+void renderGraphics() {
     // Limpiar el buffer de color y profundidad para la vista principal
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -313,7 +500,59 @@ void updateGraphics() {
     // Finalmente, actualizar la ventana
     glfwSwapBuffers(window);
 }
+*/
 
+
+void renderGraphics(void)
+{
+    // sanity check
+    if (viewport == nullptr) { return; }
+
+    /////////////////////////////////////////////////////////////////////
+    // UPDATE WIDGETS
+    /////////////////////////////////////////////////////////////////////
+
+    // get width and height of CHAI3D internal rendering buffer
+    int displayW = viewport->getDisplayWidth();
+    int displayH = viewport->getDisplayHeight();
+
+    // update haptic and graphic rate data
+    labelRates->setText(cStr(freqCounterGraphics.getFrequency(), 0) + " Hz / " +
+        cStr(freqCounterHaptics.getFrequency(), 0) + " Hz");
+
+    // update position of label
+    labelRates->setLocalPos((int)(0.5 * (displayW - labelRates->getWidth())), 15);
+
+    // update panel position
+    panel->setLocalPos(10, (displayH - panel->getHeight()) - 10);
+
+    // update position of label
+    labelMessage->setLocalPos((int)(0.5 * (displayW - labelMessage->getWidth())), 40);
+
+
+    /////////////////////////////////////////////////////////////////////
+    // RENDER SCENE
+    /////////////////////////////////////////////////////////////////////
+
+    // update shadow maps (if any)
+    world->updateShadowMaps(false, mirroredDisplay);
+
+    // render world
+    viewport->renderView(framebufferW, framebufferH);
+
+    // wait until all GL commands are completed
+    glFinish();
+
+    // check for any OpenGL errors
+    GLenum error = glGetError();
+    if (error != GL_NO_ERROR) cout << "Error:  %s\n" << gluErrorString(error);
+
+    // swap buffers
+    glfwSwapBuffers(window);
+
+    // signal frequency counter
+    freqCounterGraphics.signal(1);
+}
 
 void onMouseScrollCallback(GLFWwindow* a_window, double a_offsetX, double a_offsetY)
 {
@@ -326,6 +565,7 @@ void onMouseScrollCallback(GLFWwindow* a_window, double a_offsetX, double a_offs
     camera->setSphericalRadius(cameraDistance);
 }
 
+/*
 void onMouseButtonCallback(GLFWwindow* a_window, int a_button, int a_action, int a_mods)
 {
     if (a_button == GLFW_MOUSE_BUTTON_LEFT && a_action == GLFW_PRESS)
@@ -343,6 +583,43 @@ void onMouseButtonCallback(GLFWwindow* a_window, int a_button, int a_action, int
         mouseState = MOUSE_IDLE;
     }
 }
+*/
+
+
+void onMouseButtonCallback(GLFWwindow* a_window, int a_button, int a_action, int a_mods)
+{
+    if (a_button == GLFW_MOUSE_BUTTON_LEFT && a_action == GLFW_PRESS)
+    {
+        // store mouse position
+        glfwGetCursorPos(window, &mouseX, &mouseY);
+
+        // update mouse state
+        mouseState = MOUSE_MOVE_CAMERA;
+
+        // variable for storing collision information
+        cCollisionRecorder recorder;
+        cCollisionSettings settings;
+
+        // detect for any collision between mouse and front layer widgets
+        bool hit = viewport->selectFrontLayer(mouseX, (windowH - mouseY), windowW, windowH, recorder, settings);
+        if (hit)
+        {
+            // reset all label font colors to white
+            instrucciones->m_fontColor.setWhite();
+        }
+        else
+        {
+            // detect for any collision between mouse and world
+            hit = camera->selectWorld(mouseX, (windowH - mouseY), windowW, windowH, recorder, settings);
+        }
+    }
+    else
+    {
+        // update mouse state
+        mouseState = MOUSE_IDLE;
+    }
+}
+
 
 void onMouseMotionCallback(GLFWwindow* a_window, double a_posX, double a_posY)
 {
@@ -363,6 +640,16 @@ void onMouseMotionCallback(GLFWwindow* a_window, double a_posX, double a_posY)
         camera->setSphericalPolarDeg(polarDeg);
     }
 }
+
+void close(void)
+{
+    // stop the simulation
+    simulationRunning = false;
+
+    // wait for graphics and haptics loops to terminate
+    while (!simulationFinished) { cSleepMs(100); }
+}
+
 // Callback para controlar el movimiento con las teclas
 void onKeyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, int a_mods)
 {
@@ -415,7 +702,116 @@ void onKeyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action
                 needle->setLocalPos(holePositions[holeIndex]);
             }
         }
-
     }
+}
+
+/*
+void onKeyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, int a_mods)
+{
+    // filter calls that only include a key press
+    if ((a_action != GLFW_PRESS) && (a_action != GLFW_REPEAT))
+    {
+        return;
+    }
+
+    // option - exit
+    else if ((a_key == GLFW_KEY_ESCAPE) || (a_key == GLFW_KEY_Q))
+    {
+        glfwSetWindowShouldClose(a_window, GLFW_TRUE);
+    }
+
+    // option - toggle fullscreen
+    else if (a_key == GLFW_KEY_F)
+    {
+        // toggle state variable
+        fullscreen = !fullscreen;
+
+        // get handle to monitor
+        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+
+        // get information about monitor
+        const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+
+        // set fullscreen or window mode
+        if (fullscreen)
+        {
+            glfwSetWindowMonitor(window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
+        }
+        else
+        {
+            int w = 0.8 * mode->height;
+            int h = 0.5 * mode->height;
+            int x = 0.5 * (mode->width - w);
+            int y = 0.5 * (mode->height - h);
+            glfwSetWindowMonitor(window, NULL, x, y, w, h, mode->refreshRate);
+        }
+
+        // set the desired swap interval and number of samples to use for multisampling
+        // glfwSwapInterval(swapInterval);
+        glfwWindowHint(GLFW_SAMPLES, 4);
+    }
+
+    // option - toggle vertical mirroring
+    else if (a_key == GLFW_KEY_M)
+    {
+        mirroredDisplay = !mirroredDisplay;
+        camera->setMirrorVertical(mirroredDisplay);
+    }
+}
+*/
+
+
+void onWindowSizeCallback(GLFWwindow* a_window, int a_width, int a_height)
+{
+    // update window size
+    windowW = a_width;
+    windowH = a_height;
+
+    // render scene
+    renderGraphics();
+}
+
+//------------------------------------------------------------------------------
+
+void onFrameBufferSizeCallback(GLFWwindow* a_window, int a_width, int a_height)
+{
+    // update frame buffer size
+    framebufferW = a_width;
+    framebufferH = a_height;
+}
+
+void onWindowContentScaleCallback(GLFWwindow* a_window, float a_xscale, float a_yscale)
+{
+    // update window content scale factor
+    viewport->setContentScale(a_xscale, a_yscale);
+}
+
+void onErrorCallback(int a_error, const char* a_description)
+{
+    cout << "Error: " << a_description << endl;
+}
+
+void renderHaptics(void)
+{
+    // simulation in now running
+    simulationRunning = true;
+    simulationFinished = false;
+
+    // main haptic simulation loop
+    while (simulationRunning)
+    {
+        /////////////////////////////////////////////////////////////////////////
+        // HAPTIC RENDERING
+        /////////////////////////////////////////////////////////////////////////
+
+        // signal frequency counter
+        freqCounterHaptics.signal(1);
+
+        // compute global reference frames for each object
+        world->computeGlobalPositions(true);
+    }
+
+    // exit haptics thread
+    simulationFinished = true;
 }
 
