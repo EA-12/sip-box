@@ -50,7 +50,7 @@ std::vector<cVector3d> holePositions = {
     cVector3d(-60.0, -162.0, 27.0),   // Posición del agujero 4  (-60, -162, 27)
     cVector3d(-27.0, -162.0, 27.0),    // Posición del agujero 5  (-27, -162, 27)
     cVector3d(6.0, -162.0, 27.0),    // Posición del agujero 6 (6, -162, 27)
-    cVector3d(-60.0, 165.0, -6.0),   // Posición del agujero 7 (-60, -165, -6)
+    cVector3d(-60.0, -165.0, -6.0),   // Posición del agujero 7 (-60, -165, -6)
     cVector3d(-27.0, -165.0, -6.0),    // Posición del agujero 8 (-27, -165, -6)
     cVector3d(6.0, -165.0, -6.0)     // Posición del agujero 9  (6, -165, -6)
 };
