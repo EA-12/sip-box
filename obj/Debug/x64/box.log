@@ -1,2 +1,9 @@
 ﻿  box.cpp
-  box.vcxproj -> C:\Users\evalc\chai3d\bin\win-x64\box.exe
+C:\Users\bosch\Documents\GIB_ETSIT\SIP\chai3d\examples\GLFW\box\box.cpp(111,13): warning C4566: le caractère représenté par le nom de caractère universel '\u2190' ne peut pas être représenté dans la page de codes actuelle (1252)
+C:\Users\bosch\Documents\GIB_ETSIT\SIP\chai3d\examples\GLFW\box\box.cpp(111,13): warning C4566: le caractère représenté par le nom de caractère universel '\u2192' ne peut pas être représenté dans la page de codes actuelle (1252)
+C:\Users\bosch\Documents\GIB_ETSIT\SIP\chai3d\examples\GLFW\box\box.cpp(112,13): warning C4566: le caractère représenté par le nom de caractère universel '\u2191' ne peut pas être représenté dans la page de codes actuelle (1252)
+C:\Users\bosch\Documents\GIB_ETSIT\SIP\chai3d\examples\GLFW\box\box.cpp(112,13): warning C4566: le caractère représenté par le nom de caractère universel '\u2193' ne peut pas être représenté dans la page de codes actuelle (1252)
+C:\Users\bosch\Documents\GIB_ETSIT\SIP\chai3d\examples\GLFW\box\box.cpp(338,23): warning C4018: '<' : incompatibilité signed/unsigned
+C:\Users\bosch\Documents\GIB_ETSIT\SIP\chai3d\examples\GLFW\box\box.cpp(415,16): warning C4244: 'initialisation' : conversion de 'double' en 'int', perte possible de données
+C:\Users\bosch\Documents\GIB_ETSIT\SIP\chai3d\examples\GLFW\box\box.cpp(416,16): warning C4244: 'initialisation' : conversion de 'double' en 'int', perte possible de données
+  box.vcxproj -> C:\Users\bosch\Documents\GIB_ETSIT\SIP\chai3d\bin\win-x64\box.exe
