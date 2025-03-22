@@ -482,30 +482,30 @@ int main(int argc, char* argv[])
     // a widget panel
     panel = new cPanel();
     camera->m_frontLayer->addChild(panel);
-    panel->setSize(500, 80);
-    panel->m_material->setGrayDim();
+    panel->setSize(500, 70);
+    panel->setColor(cColorf(230.0 / 255.0, 209.0 / 255.0, 34.0 / 255.0));
     panel->setTransparencyLevel(0.8);
 
     // instructions
     instrucciones = new cLabel(font);
     panel->addChild(instrucciones);
     instrucciones->setText("To make him better, touch the following objects with the needle:");
-    instrucciones->setLocalPos(10, 60, 0.1);
-    instrucciones->m_fontColor.setWhite();
+    instrucciones->setLocalPos(10, 50, 0.1);
+    instrucciones->m_fontColor.setBlack();
 
     int num1 = rand() % 7 + 0;
     object1 = new cLabel(font);
     panel->addChild(object1);
     object1->setText(objects[num1]);
-    object1->setLocalPos(10, 40, 0.1);
-    object1->m_fontColor.setWhite();
+    object1->setLocalPos(10, 30, 0.1);
+    object1->m_fontColor.setBlack();
 
     int num2 = rand() % 7 + 0;
     object2 = new cLabel(font);
     panel->addChild(object2);
     object2->setText(objects[num2]);
-    object2->setLocalPos(10, 20, 0.1);
-    object2->m_fontColor.setWhite();
+    object2->setLocalPos(10, 10, 0.1);
+    object2->m_fontColor.setBlack();
 
     // create a label with a small message
     labelMessage = new cLabel(font);
