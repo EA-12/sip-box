@@ -42,6 +42,8 @@ cBackground* background;
 cFontPtr font;
 cMaterial* material;
 cCamera* needleCamera;
+cViewPanel* viewPanel;
+cFrameBufferPtr needleFrameBuffer;
 
 // a label to display the rate [Hz] at which the simulation is running
 cLabel* labelRates;
@@ -139,6 +141,8 @@ void renderHaptics(void);
 
 // this function closes the application
 void close(void);
+
+void updateCameraPosition();
 
 
 // Función para cargar un modelo y crear un contenedor de mallas múltiples
@@ -296,7 +300,7 @@ int main(int argc, char* argv[])
     // camera->addChild(light);
     light->setEnabled(true);
     light->setLocalPos(0.0, 0.5, 0.0);
-    light->setDir(-1.0, -1.0, -1.0);
+    light->setDir(1.0, 1.0, -1.0);
 
     // Load STL model
     mainObject = loadModel("./stls/box_wo_cover.stl");
@@ -374,17 +378,63 @@ int main(int argc, char* argv[])
     rotation.identity();
     rotation.rotateAboutGlobalAxisDeg(cVector3d(0.0, 0.0, 1.0), 90); // Rotar 90 grados alrededor del eje Z
     needle->setLocalRot(rotation);
-   // needle->setLocalPos(cVector3d(0.0, 0.0, 0.0)); NOT NEEDED
+    // needle->setLocalPos(cVector3d(0.0, 0.0, 0.0)); NOT NEEDED
     // Posición inicial de la aguja (agujero central)
     needle->setLocalPos(holePositions[4]); // El índice 4 corresponde al agujero 5
     needle->setShowBoundaryBox(true);
     world->addChild(needle); // A�adir la aguja al mundo, no al objeto principal
 
+    // Obtener la posición local de la aguja
+    cVector3d needlePos = needle->getLocalPos();
+    // Imprimir la posición de la aguja
+    std::cout << "Posición de la aguja: "
+        << "(" << needlePos.x() << ", "
+        << needlePos.y() << ", "
+        << needlePos.z() << ")" << std::endl;
+
+    cVector3d needleTip = needlePos + cVector3d(-10.0, 50, 0.0);
+
+    // Imprimir la posición de la punta de la aguja
+    std::cout << "Posición de la punta de la aguja: "
+        << "(" << needleTip.x() << ", "
+        << needleTip.y() << ", "
+        << needleTip.z() << ")" << std::endl;
+
+
+
     //NEEDLE CAMERA
+
     needleCamera = new cCamera(world);
     world->addChild(needleCamera);
-    needleCamera->setSphericalDeg(cameraDistance, 0.0, 0.0);
+    needleCamera->setLocalPos(needleTip);
+
+    needleCamera->setSphericalReferences(
+        needleTip,  // Punto de referencia (centro de la aguja)
+        cVector3d(0.0, 1.0, 0.0),
+        cVector3d(0.0, 0.0, -1.0)
+    );
+
+    cVector3d cameraPos = needleCamera->getLocalPos();
+    needleCamera->setSphericalDeg(0.0, 0.0, 0.0);
     needleCamera->setClippingPlanes(0.01, 1000.0);
+
+    // Crear un framebuffer para la cámara de la aguja
+    needleFrameBuffer = cFrameBuffer::create();
+    needleFrameBuffer->setup(needleCamera, 200, 200, true, true);
+    needleCamera->renderView(200, 200);
+
+
+    // Crear el panel de vista con el framebuffer
+    viewPanel = new cViewPanel(needleFrameBuffer);
+    camera->m_frontLayer->addChild(viewPanel);
+    viewPanel->setFrameBuffer(needleFrameBuffer);
+
+    viewPanel->setSize(150, 150);
+    viewPanel->setLocalPos(0, 0, 0);
+    viewPanel->setShowEnabled(true);
+
+    world->addChild(viewPanel);
+
 
     // Compute boundary box for the main object
     mainObject->computeBoundaryBox(true);
@@ -546,6 +596,15 @@ void renderGraphics(void)
     // update position of label
     labelMessage->setLocalPos((int)(0.5 * (displayW - labelMessage->getWidth())), 40);
 
+    /////////////////////////////////////////////////////////////////////
+    // UPDATE NEEDLE CAMERA POSITION
+    /////////////////////////////////////////////////////////////////////
+
+     // Actualizar la posición de la cámara de la aguja
+    updateCameraPosition();
+
+    // Renderizar el framebuffer del panel de vista
+    needleFrameBuffer->renderView();
 
     /////////////////////////////////////////////////////////////////////
     // RENDER SCENE
@@ -831,6 +890,23 @@ void renderHaptics(void)
     // exit haptics thread
     simulationFinished = true;
 }
+void updateCameraPosition() {
+    
+    cVector3d needlePos = needle->getLocalPos();
+    cVector3d needleTip = needlePos + cVector3d(-10.0, 50, 0.0);  
+    cVector3d cameraPosition = needleTip; // Ajusta los valores para más distancia y altura
+    needleCamera->setLocalPos(cameraPosition);
+
+    needleCamera->setSphericalReferences(
+        needleTip,               // La cámara sigue la punta de la aguja
+        cVector3d(0.0, -1.0, 0.0),  // Mirando hacia adelante, ligeramente inclinada en Z
+        cVector3d(0.0, 0.0, -1.0) // Dirección del acimut (eje X)
+    );
+
+    // Actualizar la vista renderizada de la cámara
+    needleCamera->renderView(200, 200);  // Cambia el tamaño del renderizado si es necesario
+}
+
 
 //-------------------------------------------------------------------------------------
 //COLLISIONS
