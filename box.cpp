@@ -154,7 +154,7 @@ cMultiMesh* loadModel(const std::string& filepath)
 }
 
 //Declare the function check collisions
-//void checkCollisions();
+void checkCollisions();
 
 
 
@@ -482,7 +482,7 @@ int main(int argc, char* argv[])
     {
         
         // Vérifier les collisions
-        //checkCollisions();
+        checkCollisions();
 
         // Render scene
         renderGraphics();
@@ -830,4 +830,55 @@ void renderHaptics(void)
 
     // exit haptics thread
     simulationFinished = true;
+}
+
+//-------------------------------------------------------------------------------------
+//COLLISIONS
+//-------------------------------------------------------------------------------------
+void checkCollisions()
+{
+    // Verify that `needle` and `mainObject` are charged when the function is called
+    if (!needle || !mainObject) {
+        cout << "ERROR: Needle or main objet not itialised !" << endl;
+        return;
+    }
+
+    //  Upload the boundary box after transformation
+    // Refresh the global position of the objects
+    world->computeGlobalPositions(true);
+
+    // Charge the global positions and the boundary box limits
+    cVector3d needleGlobalPos = needle->getGlobalPos();
+    needle->computeBoundaryBox(true);
+    cVector3d minNeedleGlobal = needle->getBoundaryMin() + needleGlobalPos;
+    cVector3d maxNeedleGlobal = needle->getBoundaryMax() + needleGlobalPos;
+
+    cout << "Needle Global Position: (" << needleGlobalPos.x() << ", " << needleGlobalPos.y() << ", " << needleGlobalPos.z() << ")" << endl;
+    cout << "Needle Min: (" << minNeedleGlobal.x() << ", " << minNeedleGlobal.y() << ", " << minNeedleGlobal.z() << ") - Max: (" << maxNeedleGlobal.x() << ", " << maxNeedleGlobal.y() << ", " << maxNeedleGlobal.z() << ")" << endl;
+
+    for (int i = 0; i < mainObject->getNumChildren(); i++) {
+        cMultiMesh* objectMesh = dynamic_cast<cMultiMesh*>(mainObject->getChild(i));
+
+        if (objectMesh) {
+            for (int j = 0; j < objectMesh->getNumMeshes(); j++) {
+                cMesh* mesh = objectMesh->getMesh(j);
+
+                if (mesh) {
+                    mesh->computeBoundaryBox(true);
+                    cVector3d minObj = mesh->getBoundaryMin();
+                    cVector3d maxObj = mesh->getBoundaryMax();
+
+                    cout << "Object " << i << " Mesh " << j << " Min: (" << minObj.x() << ", " << minObj.y() << ", " << minObj.z() << ") - Max: (" << maxObj.x() << ", " << maxObj.y() << ", " << maxObj.z() << ")" << endl;
+
+                    // Check if a collision occur with the boundary boxes 
+                    if (minNeedleGlobal.x() < maxObj.x() && maxNeedleGlobal.x() > minObj.x() &&
+                        minNeedleGlobal.y() < maxObj.y() && maxNeedleGlobal.y() > minObj.y() &&
+                        minNeedleGlobal.z() < maxObj.z() && maxNeedleGlobal.z() > minObj.z()) {
+                        cout << "Collision detected with object " << i << "!" << endl;
+                    }
+                }
+            }
+        }
+    }
+
 }
