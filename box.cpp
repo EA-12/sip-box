@@ -734,14 +734,24 @@ void onKeyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action
     {
         double moveSpeed = 3.0;  // Velocidad de movimiento de la aguja
         cVector3d currentPos = needle->getLocalPos();
-
-        if (a_key == GLFW_KEY_UP)
+        if (a_mods & GLFW_MOD_SHIFT)
         {
-            needle->setLocalPos(currentPos + cVector3d(0.0, moveSpeed, 0.0));  // Mover hacia arriba
+            if (a_key == GLFW_KEY_UP && a_action == GLFW_PRESS)
+            {
+                needle->setLocalPos(currentPos + cVector3d(0.0, moveSpeed, 0.0));  // Mover hacia dentro
+            }
+            if (a_key == GLFW_KEY_DOWN && a_action == GLFW_PRESS)
+            {
+                needle->setLocalPos(currentPos - cVector3d(0.0, moveSpeed, 0.0));  // Mover hacia fuera
+            }
+        }
+        else if (a_key == GLFW_KEY_UP)
+        {
+            needle->setLocalPos(currentPos + cVector3d(0.0, 0.0, moveSpeed));  // Mover hacia arriba
         }
         else if (a_key == GLFW_KEY_DOWN)
         {
-            needle->setLocalPos(currentPos - cVector3d(0.0, moveSpeed, 0.0));  // Mover hacia abajo
+            needle->setLocalPos(currentPos - cVector3d(0.0, 0.0, moveSpeed));  // Mover hacia abajo
         }
         else if (a_key == GLFW_KEY_LEFT)
         {
@@ -750,14 +760,6 @@ void onKeyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action
         else if (a_key == GLFW_KEY_RIGHT)
         {
             needle->setLocalPos(currentPos + cVector3d(moveSpeed, 0.0, 0.0));  // Mover hacia la derecha
-        }
-        else if (a_key == GLFW_KEY_W)
-        {
-            needle->setLocalPos(currentPos + cVector3d(0.0, 0.0, moveSpeed));  // Mover hacia adelante (eje Z)
-        }
-        else if (a_key == GLFW_KEY_S)
-        {
-            needle->setLocalPos(currentPos - cVector3d(0.0, 0.0, moveSpeed));  // Mover hacia atrás (eje Z)
         }
 
         /// GET NEEDLE POSITION
