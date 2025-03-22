@@ -36,6 +36,7 @@ bool fullscreen = false;
 bool mirroredDisplay = false;
 
 cDirectionalLight* light;
+cSpotLight* mobileLight;
 cMultiMesh* needle;
 cMultiMesh* mainObject;
 cBackground* background;
@@ -417,6 +418,14 @@ int main(int argc, char* argv[])
     cVector3d cameraPos = needleCamera->getLocalPos();
     needleCamera->setSphericalDeg(0.0, 0.0, 0.0);
     needleCamera->setClippingPlanes(0.01, 1000.0);
+
+    // Needle light
+    mobileLight = new cSpotLight (world);
+    world->addChild(mobileLight);
+    mobileLight->setEnabled(true);
+    mobileLight->setParent(needleCamera);
+    mobileLight->setLocalPos(needleTip);
+    mobileLight->setDir(1.0, 1.0, -1.0);
 
     // Crear un framebuffer para la cámara de la aguja
     needleFrameBuffer = cFrameBuffer::create();
