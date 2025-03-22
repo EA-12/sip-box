@@ -153,6 +153,11 @@ cMultiMesh* loadModel(const std::string& filepath)
     return model;
 }
 
+//Declare the function check collisions
+//void checkCollisions();
+
+
+
 //------------------------------------------------------------------------------
 // MAIN FUNCTION
 //------------------------------------------------------------------------------
@@ -464,9 +469,21 @@ int main(int argc, char* argv[])
     // create a viewport to display the scene.
     viewport = new cViewport(camera, contentScaleW, contentScaleH);
 
+
+    //compute boundary box for the needle 
+    needle->computeBoundaryBox(true);
+    cVector3d minNeedle = needle->getBoundaryMin();
+    cVector3d maxNeedle = needle->getBoundaryMax();
+
+
+
     // Main loop
     while (!glfwWindowShouldClose(window))
     {
+        
+        // Vérifier les collisions
+        //checkCollisions();
+
         // Render scene
         renderGraphics();
 
@@ -814,4 +831,3 @@ void renderHaptics(void)
     // exit haptics thread
     simulationFinished = true;
 }
-
