@@ -381,7 +381,7 @@ int main(int argc, char* argv[])
     // needle->setLocalPos(cVector3d(0.0, 0.0, 0.0)); NOT NEEDED
     // Posición inicial de la aguja (agujero central)
     needle->setLocalPos(holePositions[4]); // El índice 4 corresponde al agujero 5
-    needle->setShowBoundaryBox(true);
+    needle->setShowBoundaryBox(false);
     world->addChild(needle); // A�adir la aguja al mundo, no al objeto principal
 
     // Obtener la posición local de la aguja
@@ -895,7 +895,7 @@ void renderHaptics(void)
 void updateCameraPosition() {
     
     cVector3d needlePos = needle->getLocalPos();
-    cVector3d needleTip = needlePos + cVector3d(-10.0, 50, 0.0);  
+    cVector3d needleTip = needlePos + cVector3d(28, 50, 0);  
     cVector3d cameraPosition = needleTip; // Ajusta los valores para más distancia y altura
     needleCamera->setLocalPos(cameraPosition);
 
