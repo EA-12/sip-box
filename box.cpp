@@ -102,15 +102,15 @@ const double zoomSpeed = 30.0; // Velocidad del zoom
 
 // POSITION THE NEEDLE INSIDE THE HOLES
 std::vector<cVector3d> holePositions = {
-    cVector3d(-60.0, -162.0, 60.0), // Posición del agujero 1 (-60, -162, 60)
-    cVector3d(-27.0, -162.0, 60.0),   // Posición del agujero 2  (-27, -162, 60)
-    cVector3d(6.0, -162.0, 60.0),   // Posición del agujero 3 (6, -162, 60)
-    cVector3d(-60.0, -162.0, 27.0),   // Posición del agujero 4  (-60, -162, 27)
-    cVector3d(-27.0, -162.0, 27.0),    // Posición del agujero 5  (-27, -162, 27)
-    cVector3d(6.0, -162.0, 27.0),    // Posición del agujero 6 (6, -162, 27)
-    cVector3d(-60.0, -165.0, -6.0),   // Posición del agujero 7 (-60, -165, -6)
-    cVector3d(-27.0, -165.0, -6.0),    // Posición del agujero 8 (-27, -165, -6)
-    cVector3d(6.0, -165.0, -6.0)     // Posición del agujero 9  (6, -165, -6)
+    cVector3d(-63, -162, 36), // Posición del agujero 1
+    cVector3d(-27.0, -162.0, 36.0),   // Posición del agujero 2
+    cVector3d(6.0, -162.0, 36.0),   // Posición del agujero 3
+    cVector3d(-63, -162, 3),   // Posición del agujero 4
+    cVector3d(-30, -162, 3),    // Posición del agujero 5 
+    cVector3d(6, -162, 3),    // Posición del agujero 6 
+    cVector3d(-63, -162, -33),   // Posición del agujero 7 
+    cVector3d(-27, -162, -33),    // Posición del agujero 8
+    cVector3d(6, -162, -33)     // Posición del agujero 9
 };
 
 //------------------------------------------------------------------------------
@@ -253,6 +253,9 @@ int main(int argc, char* argv[])
 
     // set GLFW mouse button callback
     glfwSetMouseButtonCallback(window, onMouseButtonCallback);
+
+    // set GLFW mouse scroll callback
+    glfwSetScrollCallback(window, onMouseScrollCallback);
 
     // get width and height of window
     glfwGetFramebufferSize(window, &framebufferW, &framebufferH);
@@ -816,12 +819,12 @@ void onKeyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action
         }
 
         /// GET NEEDLE POSITION
-        //cVector3d needlePosition = needle->getLocalPos(); // Obtener la posición local de la aguja
-        //cout << "Posición de la aguja: ("
-        //    << needlePosition.x() << ", "
-        //    << needlePosition.y() << ", "
-        //    << needlePosition.z() << ")"
-        //    << endl;
+        cVector3d needlePosition = needle->getLocalPos(); // Obtener la posición local de la aguja
+        cout << "Posición de la aguja: ("
+            << needlePosition.x() << ", "
+            << needlePosition.y() << ", "
+            << needlePosition.z() << ")"
+            << endl;
         ///
         // Mover la aguja según la tecla presionada
         if (a_key >= GLFW_KEY_1 && a_key <= GLFW_KEY_9)
