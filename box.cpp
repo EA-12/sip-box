@@ -337,6 +337,7 @@ int main(int argc, char* argv[])
         "./stls/stick2.stl",
         "./stls/stick3.stl",
         "./stls/cube.stl",
+        "./stls/stick5.stl",
         "./stls/stick4.stl",
         // "./stls/cover.stl", // descomentar si se quiere usar la tapa
     };
