@@ -821,6 +821,7 @@ void onKeyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action
             toggleLight(positionalLight);
         }
 
+        /*
         /// GET NEEDLE POSITION
         cVector3d needlePosition = needle->getLocalPos(); // Obtener la posición local de la aguja
         cout << "Posición de la aguja: ("
@@ -829,6 +830,7 @@ void onKeyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action
             << needlePosition.z() << ")"
             << endl;
         ///
+        */
         // Mover la aguja según la tecla presionada
         if (a_key >= GLFW_KEY_1 && a_key <= GLFW_KEY_9)
         {
