@@ -36,6 +36,7 @@ bool fullscreen = false;
 bool mirroredDisplay = false;
 
 cDirectionalLight* light;
+cPositionalLight* positionalLight;
 cSpotLight* mobileLight;
 cMultiMesh* needle;
 cMultiMesh* mainObject;
@@ -150,7 +151,7 @@ void close(void);
 
 void updateCameraPosition();
 
-void toggleLight(cSpotLight* l);
+void toggleLight(cGenericLight* l);
 
 
 // Función para cargar un modelo y crear un contenedor de mallas múltiples
@@ -309,6 +310,12 @@ int main(int argc, char* argv[])
     light->setEnabled(true);
     light->setLocalPos(0.0, 0.5, 0.0);
     light->setDir(1.0, 1.0, -1.0);
+
+    // Create another light source
+    positionalLight = new cPositionalLight(world);
+    world->addChild(positionalLight);
+    positionalLight->setEnabled(false);
+    positionalLight->setLocalPos(0, 0, 0);
 
     // Load STL model
     mainObject = loadModel("./stls/box_wo_cover.stl");
@@ -802,6 +809,10 @@ void onKeyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action
         {
             needle->setLocalPos(currentPos + cVector3d(moveSpeed, 0.0, 0.0));  // Mover hacia la derecha
         }
+        else if (a_key == GLFW_KEY_L)
+        {
+            toggleLight(positionalLight);
+        }
 
         /// GET NEEDLE POSITION
         //cVector3d needlePosition = needle->getLocalPos(); // Obtener la posición local de la aguja
@@ -1003,7 +1014,7 @@ void checkCollisions()
 }
 */
 
-void toggleLight(cSpotLight* l) {
+void toggleLight(cGenericLight* l) {
     bool lightOn = l->getEnabled();
     l->setEnabled(!lightOn);
     /*
