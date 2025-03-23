@@ -55,8 +55,13 @@ cLabel* labelMessage;
 // a widget panel
 cPanel* panel;
 
-// some labels
-cLabel* instrucciones;
+// We simulate a button to turn on/off needle light
+cPanel* buttonPanel;
+cLabel* buttonLabel;
+bool lightOn = false;
+
+// Labels
+cLabel* instructions;
 cLabel* object1;
 cLabel* object2;
 
@@ -145,6 +150,8 @@ void close(void);
 
 void updateCameraPosition();
 
+void toggleLight(cSpotLight* l);
+
 
 // Función para cargar un modelo y crear un contenedor de mallas múltiples
 cMultiMesh* loadModel(const std::string& filepath)
@@ -159,7 +166,7 @@ cMultiMesh* loadModel(const std::string& filepath)
 }
 
 //Declare the function check collisions
-void checkCollisions();
+// void checkCollisions();
 
 
 
@@ -422,7 +429,7 @@ int main(int argc, char* argv[])
     // Needle light
     mobileLight = new cSpotLight (world);
     world->addChild(mobileLight);
-    mobileLight->setEnabled(true);
+    mobileLight->setEnabled(lightOn);
     mobileLight->setParent(needleCamera);
     mobileLight->setLocalPos(needleTip);
     mobileLight->setDir(1.0, 1.0, -1.0);
@@ -487,11 +494,11 @@ int main(int argc, char* argv[])
     panel->setTransparencyLevel(0.8);
 
     // instructions
-    instrucciones = new cLabel(font);
-    panel->addChild(instrucciones);
-    instrucciones->setText("To make him better, touch the following objects with the needle:");
-    instrucciones->setLocalPos(10, 50, 0.1);
-    instrucciones->m_fontColor.setBlack();
+    instructions = new cLabel(font);
+    panel->addChild(instructions);
+    instructions->setText("To make him better, touch the following objects with the needle:");
+    instructions->setLocalPos(10, 50, 0.1);
+    instructions->m_fontColor.setBlack();
 
     int num1 = rand() % 7 + 0;
     object1 = new cLabel(font);
@@ -517,6 +524,22 @@ int main(int argc, char* argv[])
     // set text message
     labelMessage->setText("OPERATION. Make him better or get the buzzer!");
 
+    // button panel
+    buttonPanel = new cPanel();
+    camera->m_frontLayer->addChild(buttonPanel);
+    buttonPanel->setSize(80, 45);
+    buttonPanel->setLocalPos(10, 300, 0.1);
+    buttonPanel->setColor(cColorf(46 / 255.0, 121 / 255.0, 182 / 255.0));
+    buttonPanel->setTransparencyLevel(0.8);
+    buttonPanel->addChild(buttonLabel);
+
+    buttonLabel = new cLabel(font);
+    camera->m_frontLayer->addChild(buttonLabel);
+    buttonPanel->addChild(buttonLabel);
+    buttonLabel->setLocalPos(25, 315, 0.1);
+    buttonLabel->m_fontColor.setBlack();
+    buttonLabel->setText("ON/OFF");
+
     //--------------------------------------------------------------------------
     // VIEWPORT DISPLAY
     //--------------------------------------------------------------------------
@@ -541,7 +564,7 @@ int main(int argc, char* argv[])
     {
         
         // Vérifier les collisions
-        checkCollisions();
+        // checkCollisions();
 
         // Render scene
         renderGraphics();
@@ -677,10 +700,18 @@ void onMouseButtonCallback(GLFWwindow* a_window, int a_button, int a_action, int
     {
         // store mouse position
         glfwGetCursorPos(window, &mouseX, &mouseY);
+        // cout << "Mouse position (X): " << mouseX;
+        // cout << "Mouse position (Y): " << mouseY;
+
+        if (mouseX > 13 && mouseX < 110 && mouseY > 109 && mouseY < 170)
+        {
+            toggleLight(mobileLight);
+        }
 
         // update mouse state
         mouseState = MOUSE_MOVE_CAMERA;
 
+        /*
         // variable for storing collision information
         cCollisionRecorder recorder;
         cCollisionSettings settings;
@@ -690,13 +721,14 @@ void onMouseButtonCallback(GLFWwindow* a_window, int a_button, int a_action, int
         if (hit)
         {
             // reset all label font colors to white
-            instrucciones->m_fontColor.setWhite();
+            instructions->m_fontColor.setWhite();
         }
         else
         {
             // detect for any collision between mouse and world
             hit = camera->selectWorld(mouseX, (windowH - mouseY), windowW, windowH, recorder, settings);
         }
+        */
     }
     else
     {
@@ -918,7 +950,7 @@ void updateCameraPosition() {
     needleCamera->renderView(200, 200);  // Cambia el tamaño del renderizado si es necesario
 }
 
-
+/*
 //-------------------------------------------------------------------------------------
 //COLLISIONS
 //-------------------------------------------------------------------------------------
@@ -968,4 +1000,16 @@ void checkCollisions()
         }
     }
 
+}
+*/
+
+void toggleLight(cSpotLight* l) {
+    bool lightOn = l->getEnabled();
+    l->setEnabled(!lightOn);
+    /*
+    if (lightOn)
+        buttonLabel->setText("Apagar luz");
+    else
+        buttonLabel->setText("Encender luz");
+    */
 }
