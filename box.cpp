@@ -18,7 +18,7 @@ enum MouseStates
 // CONSTANTS
 //------------------------------------------------------------------------------
 
-string objects[8] = { "Blue ball", "Red ball", "Green ball", "Orange cube", "Blue stick", "Yellow stick", "Pink stick", "Gray stick"};
+string objects[8] = { "Blue ball", "Red ball", "Green ball", "Orange cube", "Red stick", "Gray stick", "Yellow stick", "Pink stick"};
 
 //------------------------------------------------------------------------------
 // DECLARED VARIABLES
@@ -188,11 +188,11 @@ int main(int argc, char* argv[])
     cout << "Grupo 1" << endl;
     cout << "-----------------------------------" << endl << endl << endl;
     cout << "Keyboard Options:" << endl << endl;
-    cout << "[← →] - Move the needle sideways" << endl;
-    cout << "[↑ ↓] - Move the needle inside/outside the box" << endl;
-    cout << "[w] - Move the needle up" << endl;
-    cout << "[w] - Move the needle down" << endl;
+    cout << "[arrows] - Move the needle left/right and up/down" << endl;
+    cout << "[shift + up/down arrow] - Move the needle in/out" << endl;
+    cout << "[L] - Turn central positional light on/off";
     cout << "";
+    cout << "Press the ON/OFF button to turn the needle light on/off";
     cout << endl << endl;
 
     // Initialize GLFW
@@ -403,19 +403,22 @@ int main(int argc, char* argv[])
     // Obtener la posición local de la aguja
     cVector3d needlePos = needle->getLocalPos();
     // Imprimir la posición de la aguja
+    /*
     std::cout << "Posición de la aguja: "
         << "(" << needlePos.x() << ", "
         << needlePos.y() << ", "
         << needlePos.z() << ")" << std::endl;
+    */
 
     cVector3d needleTip = needlePos + cVector3d(-10.0, 50, 0.0);
 
+    /*
     // Imprimir la posición de la punta de la aguja
     std::cout << "Posición de la punta de la aguja: "
         << "(" << needleTip.x() << ", "
         << needleTip.y() << ", "
         << needleTip.z() << ")" << std::endl;
-
+    */
 
 
     //NEEDLE CAMERA
