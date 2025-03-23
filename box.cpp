@@ -29,6 +29,15 @@ cCamera* camera;
 // a viewport to display the scene viewed by the camera
 cViewport* viewport = nullptr;
 
+// viewport for the FIXED camera
+cViewport* fixedViewport = nullptr;
+
+// Variables para el viewport de la cámara fija
+int fixedViewportWidth = 300;  // Ancho del viewport
+int fixedViewportHeight = 300; // Alto del viewport
+int fixedViewportPosX = 0;     // Posición X (esquina izquierda)
+int fixedViewportPosY = 0;     // Posición Y (esquina superior)
+
 // fullscreen mode
 bool fullscreen = false;
 
@@ -44,8 +53,10 @@ cBackground* background;
 cFontPtr font;
 cMaterial* material;
 cCamera* needleCamera;
+cCamera* fixedCamera; // Cámara fija para la vista desde arriba
 cViewPanel* viewPanel;
 cFrameBufferPtr needleFrameBuffer;
+cFrameBufferPtr fixedFrameBuffer; // Framebuffer para la cámara fija
 
 // a label to display the rate [Hz] at which the simulation is running
 cLabel* labelRates;
@@ -440,6 +451,39 @@ int main(int argc, char* argv[])
     needleCamera->setSphericalDeg(0.0, 0.0, 0.0);
     needleCamera->setClippingPlanes(0.01, 1000.0);
 
+
+
+    // Crear una cámara fija para la vista desde arriba
+    fixedCamera = new cCamera(world);
+    world->addChild(fixedCamera);
+
+    // Posicionar la cámara fija por encima de la escena
+    fixedCamera->setLocalPos(0.0, 0.0, 1000.0); // altura
+
+    // Configurar la orientación de la cámara para que mire hacia abajo
+    fixedCamera->setSphericalDeg(90.0, 0.0, 0.0); // Radio, ángulo polar, ángulo acimutal
+
+    // Configurar los planos de recorte y otros parámetros de la cámara
+    fixedCamera->setClippingPlanes(0.01, 5000.0);
+
+
+    // Framebuffer para la cámara fija
+    fixedFrameBuffer = cFrameBuffer::create();
+    fixedFrameBuffer->setup(fixedCamera, 200, 200, true, true); // Tamaño del framebuffer
+    fixedCamera->renderView(200, 200);
+
+    // Crear el panel de vista con el framebuffer
+    cViewPanel* fixedViewPanel = new cViewPanel(fixedFrameBuffer);
+    camera->m_frontLayer->addChild(fixedViewPanel);
+    fixedViewPanel->setFrameBuffer(fixedFrameBuffer);
+
+    // Configurar el tamaño y la posición del viewport
+    fixedViewPanel->setSize(200, 200); // Tamaño del viewport
+    fixedViewPanel->setLocalPos(windowW-200, windowW - 200,0); // Posición en la esquina inferior derecha
+    fixedViewPanel->setShowEnabled(true);
+
+    world->addChild(fixedViewPanel);
+
     // Needle light
     mobileLight = new cSpotLight (world);
     world->addChild(mobileLight);
@@ -565,7 +609,6 @@ int main(int argc, char* argv[])
     // create a viewport to display the scene.
     viewport = new cViewport(camera, contentScaleW, contentScaleH);
 
-
     //compute boundary box for the needle 
     needle->computeBoundaryBox(true);
     cVector3d minNeedle = needle->getBoundaryMin();
@@ -651,6 +694,9 @@ void renderGraphics(void)
 
     // Renderizar el framebuffer del panel de vista
     needleFrameBuffer->renderView();
+
+    // Renderizar el framebuffer del panel de vista de la cámara fija
+    fixedFrameBuffer->renderView();
 
     /////////////////////////////////////////////////////////////////////
     // RENDER SCENE
@@ -967,7 +1013,7 @@ void updateCameraPosition() {
     );
 
     // Actualizar la vista renderizada de la cámara
-    needleCamera->renderView(200, 200);  // Cambia el tamaño del renderizado si es necesario
+    needleCamera->renderView(200, 200);
 }
 
 /*
