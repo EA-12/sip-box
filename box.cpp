@@ -32,11 +32,14 @@ cViewport* viewport = nullptr;
 // viewport for the FIXED camera
 cViewport* fixedViewport = nullptr;
 
+// Variables para el contador de tiempo
+cLabel* timeLabel;
+double startTime;
+bool timerRunning = true;
+
 // Variables para el viewport de la cámara fija
-int fixedViewportWidth = 300;  // Ancho del viewport
-int fixedViewportHeight = 300; // Alto del viewport
-int fixedViewportPosX = 0;     // Posición X (esquina izquierda)
-int fixedViewportPosY = 0;     // Posición Y (esquina superior)
+//int fixedViewportWidth = 300;  // Ancho del viewport
+//int fixedViewportHeight = 300; // Alto del viewport
 
 // fullscreen mode
 bool fullscreen = false;
@@ -57,6 +60,8 @@ cCamera* fixedCamera; // Cámara fija para la vista desde arriba
 cViewPanel* viewPanel;
 cFrameBufferPtr needleFrameBuffer;
 cFrameBufferPtr fixedFrameBuffer; // Framebuffer para la cámara fija
+cViewPanel* fixedViewPanel;
+cPanel* timePanel;
 
 // a label to display the rate [Hz] at which the simulation is running
 cLabel* labelRates;
@@ -201,10 +206,13 @@ int main(int argc, char* argv[])
     cout << "Keyboard Options:" << endl << endl;
     cout << "[arrows] - Move the needle left/right and up/down" << endl;
     cout << "[shift + up/down arrow] - Move the needle in/out" << endl;
-    cout << "[L] - Turn central positional light on/off";
-    cout << "";
-    cout << "Press the ON/OFF button to turn the needle light on/off";
+    cout << "[L] - Turn central positional light on/off" << endl;
+    cout << "[P] - pause/restore the timer" << endl;
+    cout << "" << endl;
+    cout << "Press the ON/OFF button to turn the needle light on/off" << endl;
     cout << endl << endl;
+
+
 
     // Initialize GLFW
     if (!glfwInit())
@@ -471,15 +479,17 @@ int main(int argc, char* argv[])
     fixedFrameBuffer = cFrameBuffer::create();
     fixedFrameBuffer->setup(fixedCamera, 200, 200, true, true); // Tamaño del framebuffer
     fixedCamera->renderView(200, 200);
+    fixedCamera->setFieldViewAngleDeg(60.0); // Campo de visión más amplio (en grados)
+
 
     // Crear el panel de vista con el framebuffer
-    cViewPanel* fixedViewPanel = new cViewPanel(fixedFrameBuffer);
+    fixedViewPanel = new cViewPanel(fixedFrameBuffer);
     camera->m_frontLayer->addChild(fixedViewPanel);
     fixedViewPanel->setFrameBuffer(fixedFrameBuffer);
 
     // Configurar el tamaño y la posición del viewport
-    fixedViewPanel->setSize(200, 200); // Tamaño del viewport
-    fixedViewPanel->setLocalPos(windowW-200, windowW - 200,0); // Posición en la esquina inferior derecha
+    fixedViewPanel->setSize(150, 150); // Tamaño del viewport
+    fixedViewPanel->setLocalPos(windowW - 300, 0, 0.1); // Posición en la esquina inferior derecha
     fixedViewPanel->setShowEnabled(true);
 
     world->addChild(fixedViewPanel);
@@ -598,6 +608,23 @@ int main(int argc, char* argv[])
     buttonLabel->m_fontColor.setBlack();
     buttonLabel->setText("ON/OFF");
 
+
+    // LABEL PARA CONTADOR DE TIEMPO
+    startTime = glfwGetTime(); // Guardar el tiempo de inicio
+
+    timePanel = new cPanel();
+    timePanel->setSize(170, 30);
+    timePanel->setColor(cColorf(0.7f, 0.7f, 0.7f, 0.4f));
+    timePanel->setTransparencyLevel(0.5);
+    timePanel->setLocalPos(10, 250, 0.1);
+    camera->m_frontLayer->addChild(timePanel);
+
+    // Luego crear el label y añadirlo al panel
+    timeLabel = new cLabel(font);
+    timePanel->addChild(timeLabel); // IMPORTANTE!
+    timeLabel->m_fontColor.setBlack();
+    timeLabel->setLocalPos(10, 5, 0.1); // Posición relativa al panel
+
     //--------------------------------------------------------------------------
     // VIEWPORT DISPLAY
     //--------------------------------------------------------------------------
@@ -684,6 +711,18 @@ void renderGraphics(void)
 
     // update position of label
     labelMessage->setLocalPos((int)(0.5 * (displayW - labelMessage->getWidth())), 40);
+
+    // update timer
+    if (timerRunning) {
+        double currentTime = glfwGetTime() - startTime;
+        char timeStr[32];
+        sprintf_s(timeStr, "Tiempo: %.1f segundos", currentTime);
+        timeLabel->setText(timeStr);
+
+        // Forzar la actualización del panel
+        timePanel->markForUpdate(true);
+    }
+
 
     /////////////////////////////////////////////////////////////////////
     // UPDATE NEEDLE CAMERA POSITION
@@ -866,7 +905,9 @@ void onKeyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action
         {
             toggleLight(positionalLight);
         }
-
+        else  if (a_key == GLFW_KEY_P && a_action == GLFW_PRESS) {
+            timerRunning = !timerRunning; // Pausar/reanudar con la tecla P
+        }
         /*
         /// GET NEEDLE POSITION
         cVector3d needlePosition = needle->getLocalPos(); // Obtener la posición local de la aguja
@@ -952,6 +993,14 @@ void onWindowSizeCallback(GLFWwindow* a_window, int a_width, int a_height)
     windowW = a_width;
     windowH = a_height;
 
+    //// Reposicionar el viewport fijo
+    //if (fixedViewPanel) {
+    //    int viewportSize = 150; // Tamaño fijo del viewport
+    //    fixedViewPanel->setLocalPos(windowW - viewportSize - 10,  // Esquina derecha
+    //        windowH - viewportSize - 10,   // Esquina inferior
+    //        0);
+    //}
+
     // render scene
     renderGraphics();
 }
@@ -969,6 +1018,7 @@ void onWindowContentScaleCallback(GLFWwindow* a_window, float a_xscale, float a_
 {
     // update window content scale factor
     viewport->setContentScale(a_xscale, a_yscale);
+    fixedViewport->setContentScale(a_xscale, a_yscale);
 }
 
 void onErrorCallback(int a_error, const char* a_description)
