@@ -1,4 +1,7 @@
-﻿#include "chai3d.h"
+﻿//------------------------------------------------------------------------------
+// INCLUDES & GLOBAL DECLARATIONS
+//--------------------------------------------------------------------------
+#include "chai3d.h"
 #include <GLFW/glfw3.h>
 #include <vector>
 
@@ -23,68 +26,65 @@ string objects[8] = { "Blue ball", "Red ball", "Green ball", "Orange cube", "Red
 //------------------------------------------------------------------------------
 // DECLARED VARIABLES
 //------------------------------------------------------------------------------
+// Core objects
 cWorld* world;
 cCamera* camera;
+cViewport* viewport = nullptr; // viewport to display the scene viewed by the camera
+cViewport* fixedViewport = nullptr; // viewport for the FIXED camera
 
-// a viewport to display the scene viewed by the camera
-cViewport* viewport = nullptr;
-
-// viewport for the FIXED camera
-cViewport* fixedViewport = nullptr;
-
-// Variables para el contador de tiempo
+// Timer
 cLabel* timeLabel;
 double startTime;
 bool timerRunning = true;
 
-// Variables para el viewport de la cámara fija
-//int fixedViewportWidth = 300;  // Ancho del viewport
-//int fixedViewportHeight = 300; // Alto del viewport
-
-// fullscreen mode
-bool fullscreen = false;
-
-// mirrored display
-bool mirroredDisplay = false;
-
+// Lighting
 cDirectionalLight* light;
 cPositionalLight* positionalLight;
 cSpotLight* mobileLight;
+bool lightOn = false;
+
+// Models
 cMultiMesh* needle;
 cMultiMesh* mainObject;
 cBackground* background;
 cFontPtr font;
 cMaterial* material;
+
+// Cameras
 cCamera* needleCamera;
 cCamera* fixedCamera; // Cámara fija para la vista desde arriba
+
+// UI elements
 cViewPanel* viewPanel;
+// Frame buffers
 cFrameBufferPtr needleFrameBuffer;
 cFrameBufferPtr fixedFrameBuffer; // Framebuffer para la cámara fija
 cViewPanel* fixedViewPanel;
 cPanel* timePanel;
-
 // a label to display the rate [Hz] at which the simulation is running
 cLabel* labelRates;
-
 // a label to explain what is happening
 cLabel* labelMessage;
-
 // a widget panel
 cPanel* panel;
-
-// We simulate a button to turn on/off needle light
+// To simulate a button to turn on/off needle light
 cPanel* buttonPanel;
 cLabel* buttonLabel;
-bool lightOn = false;
-
-// Labels
 cLabel* instructions;
 cLabel* object1;
 cLabel* object2;
 
+// Window control
 GLFWwindow* window = nullptr;
-
+bool fullscreen = false; // fullscreen mode
+bool mirroredDisplay = false;
 cMultiMesh* model;
+// current size of GLFW window
+int windowW = 0;
+int windowH = 0;
+// current size of GLFW framebuffer
+int framebufferW = 0;
+int framebufferH = 0;
 
 // a flag to indicate if the haptic simulation currently running
 bool simulationRunning = false;
@@ -98,23 +98,20 @@ cFrequencyCounter freqCounterGraphics;
 // a frequency counter to measure the simulation haptic rate
 cFrequencyCounter freqCounterHaptics;
 
-// mouse position
-double mouseX, mouseY;
 
-// current size of GLFW window
-int windowW = 0;
-int windowH = 0;
-
-// current size of GLFW framebuffer
-int framebufferW = 0;
-int framebufferH = 0;
-
-// mouse state
+// Mouse control
+double mouseX, mouseY; // mouse position
 MouseStates mouseState = MOUSE_IDLE;
 
-// Variables para el zoom
-double cameraDistance = 500.0; // Distancia inicial de la c�mara
+// Variables for zoom feature
+double cameraDistance = 500.0; // total camera distance
 const double zoomSpeed = 30.0; // Velocidad del zoom
+
+// Home screen
+cTexture2dPtr startScreenTexture;
+cPanel* startPanel;
+cLabel* startButton;
+bool showStartScreen = true;
 
 // POSITION THE NEEDLE INSIDE THE HOLES
 std::vector<cVector3d> holePositions = {
@@ -185,6 +182,53 @@ cMultiMesh* loadModel(const std::string& filepath)
 //Declare the function check collisions
 // void checkCollisions();
 
+// CREATE TITLE SCREEN
+void initStartScreen()
+{
+    if (!camera) {
+        std::cerr << "Error: Camera no inicializada en initStartScreen()" << std::endl;
+        return;
+    }
+
+    // Crear panel que cubre toda la pantalla
+    startPanel = new cPanel();
+    startPanel->setSize(windowW, windowH);
+    startPanel->setLocalPos(0, 0);
+
+    // Cargar textura de imagen
+    startScreenTexture = cTexture2d::create();
+    if (!startScreenTexture->loadFromFile("./stls/logo.png"))
+    {
+        cout << "Error: No se pudo cargar la imagen de inicio" << endl;
+        // Usar color sólido si falla la carga
+        startPanel->setColor(cColorf(0.2f, 0.3f, 0.5f));
+    }
+    else
+    {
+        startPanel->setTexture(startScreenTexture);
+        startPanel->setUseTexture(true);
+        //startPanel->setTextureEnabled(true);
+    }
+
+    // Crear botón START
+    startButton = new cLabel(font);
+    startPanel->addChild(startButton);
+    startButton->setText("START");
+    startButton->m_fontColor.setWhite();
+    startButton->setFontScale(2.0);
+
+    // Centrar botón
+    double buttonX = 0.5 * (windowW - startButton->getWidth());
+    double buttonY = 0.5 * (windowH - startButton->getHeight());
+    startButton->setLocalPos(buttonX, buttonY);
+
+    // Añadir elementos a la jerarquía
+    startPanel->addChild(startButton);
+    camera->m_frontLayer->addChild(startPanel);
+
+    // Forzar actualización
+    startPanel->markForUpdate(true);
+}
 
 
 //------------------------------------------------------------------------------
@@ -204,10 +248,12 @@ int main(int argc, char* argv[])
     cout << "Grupo 1" << endl;
     cout << "-----------------------------------" << endl << endl << endl;
     cout << "Keyboard Options:" << endl << endl;
-    cout << "[arrows] - Move the needle left/right and up/down" << endl;
+    cout << "[left/right arrows] - Move the needle left/right and up/down" << endl;
     cout << "[shift + up/down arrow] - Move the needle in/out" << endl;
+    cout << "Mouse scroll - Zoom/Unzoom" << endl;
     cout << "[L] - Turn central positional light on/off" << endl;
     cout << "[P] - pause/restore the timer" << endl;
+    cout << "[1-9] - Move the needle from 1st hole to 9th" << endl;
     cout << "" << endl;
     cout << "Press the ON/OFF button to turn the needle light on/off" << endl;
     cout << endl << endl;
@@ -474,6 +520,8 @@ int main(int argc, char* argv[])
     // Configurar los planos de recorte y otros parámetros de la cámara
     fixedCamera->setClippingPlanes(0.01, 5000.0);
 
+    // Inicializar viewport
+    fixedViewport = new cViewport(fixedCamera);
 
     // Framebuffer para la cámara fija
     fixedFrameBuffer = cFrameBuffer::create();
@@ -484,15 +532,17 @@ int main(int argc, char* argv[])
 
     // Crear el panel de vista con el framebuffer
     fixedViewPanel = new cViewPanel(fixedFrameBuffer);
-    camera->m_frontLayer->addChild(fixedViewPanel);
+
     fixedViewPanel->setFrameBuffer(fixedFrameBuffer);
 
     // Configurar el tamaño y la posición del viewport
     fixedViewPanel->setSize(150, 150); // Tamaño del viewport
-    fixedViewPanel->setLocalPos(windowW - 300, 0, 0.1); // Posición en la esquina inferior derecha
+    fixedViewPanel->setLocalPos(windowW - 200, 0, 0);  // Coordenadas absolutas de pantalla
     fixedViewPanel->setShowEnabled(true);
 
-    world->addChild(fixedViewPanel);
+
+    // Añadir al layer frontal de la cámara principal
+    camera->m_frontLayer->addChild(fixedViewPanel);
 
     // Needle light
     mobileLight = new cSpotLight (world);
@@ -517,8 +567,6 @@ int main(int argc, char* argv[])
     viewPanel->setLocalPos(0, 0, 0);
     viewPanel->setShowEnabled(true);
 
-    world->addChild(viewPanel);
-
 
     // Compute boundary box for the main object
     mainObject->computeBoundaryBox(true);
@@ -529,6 +577,11 @@ int main(int argc, char* argv[])
 
     // Translate the object to the center
     mainObject->translate(-center);
+
+
+    font = NEW_CFONT_CALIBRI_20();
+    bool showStartScreen = true;
+    initStartScreen();
 
 //--------------------------------------------------------------------------
 // WIDGETS
@@ -556,8 +609,11 @@ int main(int argc, char* argv[])
 
     // a widget panel
     panel = new cPanel();
-    camera->m_frontLayer->addChild(panel);
-    panel->setSize(500, 70);
+    camera->m_backLayer->addChild(panel);
+    // Tamaño (500x70) pero convertido a proporciones relativas
+    float panelWidth = 500.0f / 1280.0f;  // 1280 es un ancho de referencia
+    float panelHeight = 70.0f / 720.0f;    // 720 es un alto de referencia
+    panel->setSize(windowW* panelWidth, windowH* panelHeight);
     panel->setColor(cColorf(230.0 / 255.0, 209.0 / 255.0, 34.0 / 255.0));
     panel->setTransparencyLevel(0.8);
 
@@ -584,7 +640,7 @@ int main(int argc, char* argv[])
 
     // create a label with a small message
     labelMessage = new cLabel(font);
-    camera->m_frontLayer->addChild(labelMessage);
+    camera->m_backLayer->addChild(labelMessage);
 
     // set font color
     labelMessage->m_fontColor.setBlack();
@@ -594,15 +650,15 @@ int main(int argc, char* argv[])
 
     // button panel
     buttonPanel = new cPanel();
-    camera->m_frontLayer->addChild(buttonPanel);
+    camera->m_backLayer->addChild(buttonPanel);
     buttonPanel->setSize(80, 45);
-    buttonPanel->setLocalPos(10, 300, 0.1);
+    buttonPanel->setLocalPos(windowW * 0.02, windowH * 0.7, 0);
     buttonPanel->setColor(cColorf(46 / 255.0, 121 / 255.0, 182 / 255.0));
     buttonPanel->setTransparencyLevel(0.8);
     buttonPanel->addChild(buttonLabel);
 
     buttonLabel = new cLabel(font);
-    camera->m_frontLayer->addChild(buttonLabel);
+    camera->m_backLayer->addChild(buttonLabel);
     buttonPanel->addChild(buttonLabel);
     buttonLabel->setLocalPos(25, 315, 0.1);
     buttonLabel->m_fontColor.setBlack();
@@ -617,7 +673,7 @@ int main(int argc, char* argv[])
     timePanel->setColor(cColorf(0.7f, 0.7f, 0.7f, 0.4f));
     timePanel->setTransparencyLevel(0.5);
     timePanel->setLocalPos(10, 250, 0.1);
-    camera->m_frontLayer->addChild(timePanel);
+    camera->m_backLayer->addChild(timePanel);
 
     // Luego crear el label y añadirlo al panel
     timeLabel = new cLabel(font);
@@ -649,9 +705,15 @@ int main(int argc, char* argv[])
         
         // Vérifier les collisions
         // checkCollisions();
-
-        // Render scene
-        renderGraphics();
+        if (!showStartScreen)
+        {
+            renderGraphics();
+        }
+        else
+        {
+            // Solo renderizar la pantalla de inicio (ya se hace en renderGraphics)
+            renderGraphics();
+        }
 
         // Poll events
         glfwPollEvents();
@@ -688,6 +750,30 @@ void renderGraphics() {
 
 void renderGraphics(void)
 {
+    if (!camera) {
+        std::cerr << "Error: Camera no inicializada!" << std::endl;
+        return;
+    }
+
+    // Controlar la visibilidad de los labels
+    if (showStartScreen) {
+        labelRates->setShowEnabled(false);
+        labelMessage->setShowEnabled(false);
+        // Otros labels que no deberían mostrarse
+    }
+    else {
+        labelRates->setShowEnabled(true);
+        labelMessage->setShowEnabled(true);
+    }
+
+    if (showStartScreen) {
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        camera->renderView(windowW, windowH);
+        glfwSwapBuffers(window);
+        return;
+    }
+
+
     // sanity check
     if (viewport == nullptr) { return; }
 
@@ -797,6 +883,29 @@ void onMouseButtonCallback(GLFWwindow* a_window, int a_button, int a_action, int
 {
     if (a_button == GLFW_MOUSE_BUTTON_LEFT && a_action == GLFW_PRESS)
     {
+        // Si estamos en la pantalla de inicio
+        if (showStartScreen)
+        {
+            // Obtener posición del ratón
+            glfwGetCursorPos(window, &mouseX, &mouseY);
+
+            // Convertir coordenadas (abajo-izquierda)
+            double y = windowH - mouseY;
+
+            // Verificar si se hizo clic en el botón START
+            cVector3d buttonPos = startButton->getLocalPos();
+            if (mouseX > buttonPos.x() &&
+                mouseX < buttonPos.x() + startButton->getWidth() &&
+                y > buttonPos.y() &&
+                y < buttonPos.y() + startButton->getHeight())
+            {
+                showStartScreen = false;
+                camera->m_frontLayer->removeChild(startPanel);
+                return;
+            }
+        }
+
+
         // store mouse position
         glfwGetCursorPos(window, &mouseX, &mouseY);
         // cout << "Mouse position (X): " << mouseX;
@@ -989,17 +1098,36 @@ void onKeyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action
 
 void onWindowSizeCallback(GLFWwindow* a_window, int a_width, int a_height)
 {
-    // update window size
     windowW = a_width;
     windowH = a_height;
 
-    //// Reposicionar el viewport fijo
-    //if (fixedViewPanel) {
-    //    int viewportSize = 150; // Tamaño fijo del viewport
-    //    fixedViewPanel->setLocalPos(windowW - viewportSize - 10,  // Esquina derecha
-    //        windowH - viewportSize - 10,   // Esquina inferior
-    //        0);
-    //}
+    // Actualizar pantalla de inicio si está visible
+    if (showStartScreen && startPanel)
+    {
+        startPanel->setSize(windowW, windowH);
+        // Reposicionar el botón START
+        double buttonX = 0.5 * (windowW - startButton->getWidth());
+        double buttonY = 0.5 * (windowH - startButton->getHeight());
+        startButton->setLocalPos(buttonX, buttonY);
+    }
+
+    // Reposicionar panel principal
+    if (panel) {
+        panel->setSize(windowW * 0.4, windowH * 0.15);  // 40% ancho, 15% alto
+        panel->setLocalPos(windowW * 0.05, windowH * 0.8);  // 5% desde izquierda, 80% desde arriba
+    }
+
+    if (timePanel) {
+        timePanel->setSize(windowW * 0.2, windowH * 0.04);
+        timePanel->setLocalPos(windowW * 0.05, windowH * 0.65);
+        timeLabel->setLocalPos(windowW * 0.01, windowH * 0.005);
+    }
+
+
+    if (labelMessage) {
+        labelMessage->setLocalPos((int)(0.5 * (windowW - labelMessage->getWidth())), 40);
+    }
+
 
     // render scene
     renderGraphics();
@@ -1012,6 +1140,15 @@ void onFrameBufferSizeCallback(GLFWwindow* a_window, int a_width, int a_height)
     // update frame buffer size
     framebufferW = a_width;
     framebufferH = a_height;
+
+    // Reconfigurar framebuffers si es necesario
+    if (needleFrameBuffer) {
+        needleFrameBuffer->setup(needleCamera, a_width, a_height, true, true);
+    }
+
+    if (fixedFrameBuffer) {
+        fixedFrameBuffer->setup(fixedCamera, a_width, a_height, true, true);
+    }
 }
 
 void onWindowContentScaleCallback(GLFWwindow* a_window, float a_xscale, float a_yscale)
